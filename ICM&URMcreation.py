@@ -4,7 +4,7 @@ import os
 import pandas as pd
 from scipy.sparse import coo_matrix
 
-train_path = Path("RecSys-Competition-master/data")/"train.csv"
+train_path = Path("data")/"train.csv"
 
 def build_matrix():
     data = pd.read_csv(train_path)
