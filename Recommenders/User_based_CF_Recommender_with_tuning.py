@@ -67,65 +67,55 @@ class CF_recommender(object):
         scores[target_profile] = -np.inf
         return scores
 ################################################################################
-"""
-def provide_recommendations(k, urm):
+
+def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
     targets_df = pd.read_csv(target_path)
     targets_array = targets_df.get_values().squeeze()
     recommender = CF_recommender(urm_csr)
-    recommender.fit(shrink=0, topK = k)
+    recommender.fit(shrink=2, topK=180)
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
-"""
+
+    with open('tuned_user_based_CF_recommendations.csv', 'w') as f:
+        f.write('playlist_id,track_ids\n')
+        for i in sorted(recommendations):
+            f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
 if __name__ == '__main__':
     utility = Data_matrix_utility(train_path)
     urm_complete = utility.build_matrix()
+    provide_recommendations(urm_complete)
+    """
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
     recommender = CF_recommender(urm_train)
 
-    K_values = [x for x in range(160,195,5)]
+    K_values = [170,175,180,185]
     K_results = []
     for k in K_values:
         recommender.fit(topK=k,shrink=0)
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
         K_results.append(evaluation_metrics["MAP"])
-    """
-    shrink_value = [for x in range(10)]
-    shrink_result = []
-    for value in shrink_value:
-        recommender.fit(topK = ,shrink=value)
+
+    shrink_values = [0,1,2,3]
+    shrink_results = []
+    for value in shrink_values:
+        recommender.fit(topK=180 ,shrink=value)
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
-        shrink_result.append(evaluation_metrics["MAP"])
-    """
-    pyplot.plot(K_values, K_results)
+        shrink_results.append(evaluation_metrics["MAP"])
+
+    #pyplot.plot(K_values, K_results)
+    pyplot.plot(shrink_values, shrink_results)
     pyplot.ylabel('MAP')
     pyplot.xlabel('TopK')
     pyplot.show()
 
 
 ###############################################################################
-"""
 Results:
-- Execution time = 1.90 min (1.40 to compute similarity + 0.5 for the rest)
-- MAP on Public Test Set: 0.07657
-
-TODO:
-1. testare su un validation set differenti valori di k (del topk), plottando su un
-  grafico come varia il MAP al variare di k e usare il k che massimizzi il MAP
-2. Fare lo stesso procedimento del punto 1 per lo shrink (quindi plottare il grafico
-del MAP in funzione dello shrink e prendere lo shrink per cui il MAP del validation set
-è massimo)
-3. Provare a scrivere il CF item based recommender e paragonare le performance rispetto
-allo user-based
-
-REFERENCES
-Per i primi 2 punti guardare il notebook "Practice 3 - Content Based Filtering"
-per avere un'idea su come plottare i grafici. Per dividere il train set in train e
-validation sets importare data_splitter.py contenuto in questa stessa cartella.
-Per farsi un'idea di quali valori di k e shrink provare nei punti 1 e 2 attenersi
-a quanto detto dal prof in classe.
+- Execution time = about 2 minutes
+- MAP on Public Test Set: 0.08343
 """
