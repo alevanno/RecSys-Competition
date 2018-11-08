@@ -67,32 +67,38 @@ class CF_recommender(object):
         scores[target_profile] = -np.inf
         return scores
 ################################################################################
-"""
-def provide_recommendations(k, urm):
+
+def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
     targets_df = pd.read_csv(target_path)
     targets_array = targets_df.get_values().squeeze()
     recommender = CF_recommender(urm_csr)
-    recommender.fit(shrink=0, topK = k)
+    recommender.fit(shrink=2, topK=180)
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
-"""
+
+    with open('tuned_user_based_CF_recommendations.csv', 'w') as f:
+        f.write('playlist_id,track_ids\n')
+        for i in sorted(recommendations):
+            f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
 if __name__ == '__main__':
     utility = Data_matrix_utility(train_path)
     urm_complete = utility.build_matrix()
+    provide_recommendations(urm_complete)
+    """
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
     recommender = CF_recommender(urm_train)
 
-    K_values = [x for x in range(160,195,5)]
+    K_values = [170,175,180,185]
     K_results = []
     for k in K_values:
         recommender.fit(topK=k,shrink=0)
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
         K_results.append(evaluation_metrics["MAP"])
-    """
+    
     shrink_value = [for x in range(10)]
     shrink_result = []
     for value in shrink_value:
@@ -100,12 +106,17 @@ if __name__ == '__main__':
         recommender.fit(topK = ,shrink=value)
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
-        shrink_result.append(evaluation_metrics["MAP"])
-    """
-    pyplot.plot(K_values, K_results)
+        shrink_results.append(evaluation_metrics["MAP"])
+
+    #pyplot.plot(K_values, K_results)
+    pyplot.plot(shrink_values, shrink_results)
     pyplot.ylabel('MAP')
     pyplot.xlabel('TopK')
     pyplot.show()
 
 
 ###############################################################################
+Results:
+- Execution time = about 2 minutes
+- MAP on Public Test Set: 0.08343
+"""
