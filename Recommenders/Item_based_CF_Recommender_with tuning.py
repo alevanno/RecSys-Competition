@@ -12,7 +12,7 @@ train_path = Path("data")/"train.csv"
 target_path = Path('data')/'target_playlists.csv'
 
 """
-Here a Item-based CF recommender is implemented
+Here an Item-based CF recommender is implemented
 """
 ################################################################################
 class Data_matrix_utility(object):
@@ -67,22 +67,6 @@ class CF_recommender(object):
         scores[target_profile] = -np.inf
         return scores
 ################################################################################
-"""
-def provide_recommendations(urm):
-    recommendations = {}
-    urm_csr = urm.tocsr()
-    targets_df = pd.read_csv(target_path)
-    targets_array = targets_df.get_values().squeeze()
-    recommender = CF_recommender(urm_csr)
-    recommender.fit(shrink=0)
-    for target in targets_array:
-        recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
-
-    with open('item_based_CF_recommendations.csv', 'w') as f:
-        f.write('playlist_id,track_ids\n')
-        for i in sorted(recommendations):
-            f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
-"""
 
 if __name__ == '__main__':
     utility = Data_matrix_utility(train_path)
@@ -90,26 +74,34 @@ if __name__ == '__main__':
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
     recommender = CF_recommender(urm_train)
 
-    """K_values = [x for x in range(160,195,5)]
-    K_results = []
-    for k in K_values:
-        recommender.fit(topK=k,shrink=0)
+    '''K_results = []
+    for k in range(45,100,5): 
+        print('Evaluating topK = ' + str(k))
+        recommender.fit(topK=k,shrink=20)
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
         K_results.append(evaluation_metrics["MAP"])
-    """
+
+    #best with topk=150+ and shrink = 0 (0.1032)
+    #best with topk=85 and shrink = 20 (0.1075)
+    '''
     shrink_result = []
-    for value in range(10):
+    for value in range(15,21):
         print('Evaluating shrink = ' + str(value))
         recommender.fit(shrink=value)
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
         shrink_result.append(evaluation_metrics["MAP"])
+        
+    #best with 19-21 and default topk (0.1071)
+    
+    
     '''
     pyplot.plot(K_values, K_results)
     pyplot.ylabel('MAP')
     pyplot.xlabel('TopK')
     pyplot.show()
     '''
+    
 ###############################################################################
 

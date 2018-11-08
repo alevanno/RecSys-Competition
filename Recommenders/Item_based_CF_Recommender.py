@@ -9,7 +9,7 @@ train_path = Path("data")/"train.csv"
 target_path = Path('data')/'target_playlists.csv'
 
 """
-Here a Item-based CF recommender is implemented
+Here an Item-based CF recommender is implemented
 """
 ################################################################################
 class Data_matrix_utility(object):
@@ -71,7 +71,7 @@ def provide_recommendations(urm):
     targets_df = pd.read_csv(target_path)
     targets_array = targets_df.get_values().squeeze()
     recommender = CF_recommender(urm_csr)
-    recommender.fit(shrink=0)
+    recommender.fit(topK=85, shrink=20)
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
 
@@ -85,24 +85,3 @@ if __name__ == '__main__':
     provide_recommendations(utility.build_matrix())
 
 ###############################################################################
-"""
-Results:
-- Execution time = 1.90 min (1.40 to compute similarity + 0.5 for the rest)
-- MAP on Public Test Set: 0.07657
-
-TODO:
-1. testare su un validation set differenti valori di k (del topk), plottando su un
-  grafico come varia il MAP al variare di k e usare il k che massimizzi il MAP
-2. Fare lo stesso procedimento del punto 1 per lo shrink (quindi plottare il grafico
-del MAP in funzione dello shrink e prendere lo shrink per cui il MAP del validation set
-è massimo)
-3. Provare a scrivere il CF item based recommender e paragonare le performance rispetto
-allo user-based
-
-REFERENCES
-Per i primi 2 punti guardare il notebook "Practice 3 - Content Based Filtering"
-per avere un'idea su come plottare i grafici. Per dividere il train set in train e
-validation sets importare data_splitter.py contenuto in questa stessa cartella.
-Per farsi un'idea di quali valori di k e shrink provare nei punti 1 e 2 attenersi
-a quanto detto dal prof in classe.
-"""
