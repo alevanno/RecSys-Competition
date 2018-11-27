@@ -68,7 +68,6 @@ class SLIM_BPR_Python(BPR_Sampling, SimilarityMatrixRecommender, Recommender):
 
 
 
-
     def updateSimilarityMatrix(self):
 
         if self.topK != False:
@@ -333,6 +332,3 @@ class SLIM_BPR_Python(BPR_Sampling, SimilarityMatrixRecommender, Recommender):
 
 
         self.S[np.arange(0, self.n_items), np.arange(0, self.n_items)] = 0.0
-
-
-

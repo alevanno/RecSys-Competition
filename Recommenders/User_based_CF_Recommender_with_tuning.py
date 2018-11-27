@@ -86,9 +86,11 @@ def provide_recommendations(urm):
 if __name__ == '__main__':
     utility = Data_matrix_utility(train_path)
     urm_complete = utility.build_matrix()
-    provide_recommendations(urm_complete)
-    """
+    #provide_recommendations(urm_complete)
+    print("URM: " + str(urm_complete.shape))
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
+    print("Train: " + str(urm_train.shape))
+    print("Test: " + str(urm_test.shape))
     recommender = CF_recommender(urm_train)
 
     K_values = [170,175,180,185]
@@ -98,7 +100,7 @@ if __name__ == '__main__':
         evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
                                          recommender)
         K_results.append(evaluation_metrics["MAP"])
-    
+    """
     shrink_value = [for x in range(10)]
     shrink_result = []
     for value in shrink_value:

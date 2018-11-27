@@ -224,6 +224,8 @@ if __name__ == '__main__':
     #provide_recommendations(utility.build_matrix())
     urm_complete = utility.build_matrix()
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
+    print("Train: " + str(urm_train.shape))
+    print("Test: " + str(urm_test.shape))
     l2_penaltly_array = [2e-05, 2e-04, 2e-03,\
         2e-02, 2e-01]
     recommender = SLIMElasticNetRecommender(urm_train)
