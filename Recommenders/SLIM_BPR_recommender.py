@@ -6,23 +6,18 @@ from scipy.sparse import coo_matrix
 from Utilities.evaluation_function import evaluate_algorithm
 from Utilities.data_splitter import train_test_holdout
 from Utilities.data_matrix import Data_matrix_utility
+from ML_recommenders.SLIM_BPR import SLIM_BPR as s
 import matplotlib.pyplot as pyplot
 
 train_path = Path("data")/"train.csv"
 target_path = Path('data')/'target_playlists.csv'
 
 if __name__ == '__main__':
-    utility = Data_matrix_utility(tracks_path, train_path)
-#    icm = utility.build_icm_matrix()
-#    urm = utility.build_urm_matrix()
-#    provide_recommendations(urm, icm)
+    utility = Data_matrix_utility(train_path)
+    urm_complete = utility.build_matrix()
 
-    icm = utility.build_icm_matrix()
-    urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
-    recommender = Hybrid_recommender(urm_train, icm.tocsr())
+    recommender = s.SLIM_BPR(URM_train = urm_train)
 
     recommender.fit()
-    evaluation_metrics = evaluate_algorithm(URM_test=urm_test, recommender_object=\
-                                         recommender)
-    print(evaluation_metrics)
+    print(recommender.evaluateRecommendations(URM_test = urm_test))
