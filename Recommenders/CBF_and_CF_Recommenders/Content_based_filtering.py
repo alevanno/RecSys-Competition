@@ -2,62 +2,17 @@ import numpy as np
 from pathlib import Path
 import os
 import pandas as pd
-from scipy.sparse import coo_matrix
-from Compute_Similarity_Python import Compute_Similarity_Python
-from evaluation_function import evaluate_algorithm
-from data_splitter import train_test_holdout
+from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
+from Recommenders.Utilities.evaluation_function import evaluate_algorithm
+from Recommenders.Utilities.data_splitter import train_test_holdout
 import matplotlib.pyplot as pyplot
+from Recommenders.Utilities.data_matrix import Data_matrix_utility
 
-tracks_path = Path("data")/"tracks.csv"
-target_path = Path('data')/'target_playlists.csv'
-train_path = Path("data")/"train.csv"
 
 """
 Here a CBF recommender is implemented
 """
-################################################################################
-class Data_matrix_utility(object):
-    def __init__(self, tracks_path, train_path):
-        self.tracks_path = tracks_path
-        self.train_path = train_path
 
-    def build_icm_matrix(self):   #for now it works only for URM
-        data = pd.read_csv(self.tracks_path)
-        n_tracks = data.nunique().get('track_id')
-        max_album_id = data.sort_values(by=['album_id'], ascending=False)['album_id'].iloc[0]
-        max_artist_id = data.sort_values(by=['artist_id'], ascending=False)['artist_id'].iloc[0]
-
-        track_array = self.extract_array_from_dataFrame(data, ['album_id',\
-                                'artist_id','duration_sec'])
-        album_array = self.extract_array_from_dataFrame(data, ['track_id',\
-                                'artist_id','duration_sec' ])
-        artist_array = self.extract_array_from_dataFrame(data, ['track_id',\
-                                    'album_id','duration_sec'])
-        artist_array = artist_array + max_album_id + 1
-        attribute_array = np.concatenate((album_array, artist_array))
-        extended_track_array = np.concatenate((track_array,track_array))
-        implicit_rating = np.ones_like(np.arange(len(extended_track_array)))
-        n_attributes = max_album_id + max_artist_id + 2
-        icm = coo_matrix((implicit_rating, (extended_track_array, attribute_array)), \
-                            shape=(n_tracks, n_attributes))
-        return icm
-
-    def build_urm_matrix(self):
-        data = pd.read_csv(self.train_path)
-        n_playlists = data.nunique().get('playlist_id')
-        n_tracks = data.nunique().get('track_id')
-
-        playlists_array = self.extract_array_from_dataFrame(data, ['track_id'])
-        track_array = self.extract_array_from_dataFrame(data, ['playlist_id'])
-        implicit_rating = np.ones_like(np.arange(len(track_array)))
-        urm = coo_matrix((implicit_rating, (playlists_array, track_array)), \
-                            shape=(n_playlists, n_tracks))
-        return urm
-
-    def extract_array_from_dataFrame(self, data, columns_list_to_drop):
-        array = data.drop(columns=columns_list_to_drop).get_values()
-        return array.T.squeeze() #transform a nested array in array and transpose it
-################################################################################
 
 ################################################################################
 class CBF_recommender(object):
@@ -96,8 +51,7 @@ def provide_recommendations(urm, icm):
     recommendations = {}
     urm_csr = urm.tocsr()
     icm_csr = icm.tocsr()
-    targets_df = pd.read_csv(target_path)
-    targets_array = targets_df.get_values().squeeze()
+    targets_array = utility.get_target_list()
     recommender = CBF_recommender(urm_csr, icm_csr)
     recommender.fit(shrink=2, topK=180)
     for target in targets_array:
@@ -109,11 +63,11 @@ def provide_recommendations(urm, icm):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
 if __name__ == '__main__':
-    utility = Data_matrix_utility(tracks_path, train_path)
+    utility = Data_matrix_utility()
     icm_complete = utility.build_icm_matrix()
     urm_complete = utility.build_urm_matrix()
-    #provide_recommendations(urm_complete, icm_complete)
-
+    provide_recommendations(urm_complete, icm_complete)
+    """
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
     recommender = CBF_recommender(urm_train, icm_complete)
 
@@ -126,7 +80,7 @@ if __name__ == '__main__':
         print("k= " + str(k))
         print(evaluation_metrics)
         #K_results.append(evaluation_metrics["MAP"])
-    """
+    
     shrink_value = [x for x in range(10)]
     shrink_result = []
     for value in shrink_value:

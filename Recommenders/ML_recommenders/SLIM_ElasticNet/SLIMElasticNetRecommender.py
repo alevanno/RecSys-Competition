@@ -1,42 +1,15 @@
-import numpy as np
-from pathlib import Path
-import pandas as pd
-import scipy.sparse as sps
-from random import randint
-from random import seed
-from Base.Recommender import Recommender
-from Base.Recommender_utils import check_matrix
-from Base.SimilarityMatrixRecommender import *
-from sklearn.linear_model import ElasticNet
-from data_splitter import train_test_holdout
-import time
 import sys
+import numpy as np
+import scipy.sparse as sps
 
-train_path = Path("data")/"train.csv"
-target_path = Path('data')/'target_playlists.csv'
+from Recommenders.Utilities.Base.Recommender import Recommender
+from Recommenders.Utilities.Base.Recommender_utils import check_matrix
+from Recommenders.Utilities.Base.SimilarityMatrixRecommender import *
+from sklearn.linear_model import ElasticNet
+from Recommenders.Utilities.data_splitter import train_test_holdout
+import time
+from Recommenders.Utilities.data_matrix import Data_matrix_utility
 
-
-################################################################################
-class Data_matrix_utility(object):
-    def __init__(self, path):
-        self.train_path = path
-
-    def build_matrix(self):   #for now it works only for URM
-        data = pd.read_csv(self.train_path)
-        n_playlists = data.nunique().get('playlist_id')
-        n_tracks = data.nunique().get('track_id')
-
-        playlists_array = self.extract_array_from_dataFrame(data, ['track_id'])
-        track_array = self.extract_array_from_dataFrame(data, ['playlist_id'])
-        implicit_rating = np.ones_like(np.arange(len(track_array)))
-        urm = sps.coo_matrix((implicit_rating, (playlists_array, track_array)), \
-                            shape=(n_playlists, n_tracks))
-        return urm
-
-    def extract_array_from_dataFrame(self, data, columns_list_to_drop):
-        array = data.drop(columns=columns_list_to_drop).get_values()
-        return array.T.squeeze() #transform a nested array in array and transpose it
-################################################################################
 
 ################################################################################
 class SLIMElasticNetRecommender(SimilarityMatrixRecommender, Recommender):
@@ -202,37 +175,42 @@ class SLIMElasticNetRecommender(SimilarityMatrixRecommender, Recommender):
 
 
 ################################################################################
-"""
+
 def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsc()
-    targets_df = pd.read_csv(target_path)
-    targets_array = targets_df.get_values().squeeze()
-    recommender = Slim_recommender(urm_csr)
-    recommender.fit()
-    for target in targets_array:
-        recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
+    targets_array = utility.get_target_list()
+    recommender = SLIMElasticNetRecommender(urm_csr)
+    l1_value = 1e-05
+    l2_value = 0.002
+    recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value, \
+            l2_penalty=l2_value)
+    recommended_list = recommender.recommend(user_id_array=targets_array, cutoff=10)
+    for index in range(len(targets_array)):
+        recommendations[targets_array[index]] = recommended_list[index]
 
-    with open('slim_recommendations.csv', 'w') as f:
+    with open('slimElasticNet_recommendations.csv', 'w') as f:
         f.write('playlist_id,track_ids\n')
         for i in sorted(recommendations):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
-"""
+
 
 if __name__ == '__main__':
-    utility = Data_matrix_utility(train_path)
+    utility = Data_matrix_utility()
     #provide_recommendations(utility.build_matrix())
-    urm_complete = utility.build_matrix()
+
+    urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
     print("Train: " + str(urm_train.shape))
     print("Test: " + str(urm_test.shape))
-    l2_penaltly_array = [2e-05, 2e-04, 2e-03,\
-        2e-02, 2e-01]
+    topK_array = [100, 120, 150, 200]
+    l1_value = 1e-05
+    l2_value = 0.002
     recommender = SLIMElasticNetRecommender(urm_train)
-    for l2_value in l2_penaltly_array:
-        l1_value = 1e-06
-        recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value, \
-                l2_penalty=l2_value)
+    for k in topK_array:
+        print("k=" + str(k))
+        recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value,\
+                l2_penalty=l2_value, topK=k)
         print(recommender.evaluateRecommendations(URM_test=urm_test))
 
 

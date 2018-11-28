@@ -12,7 +12,7 @@ import time, sys, copy
 
 from enum import Enum
 
-from Base.Evaluation.metrics import roc_auc, precision, recall, recall_min_test_len, map, ndcg, rr, arhr, \
+from Recommenders.ML_recommenders.Base.Evaluation.metrics import roc_auc, precision, recall, recall_min_test_len, map, ndcg, rr, arhr, \
     Novelty, Coverage_Item, Metrics_Object, Coverage_User, Gini_Diversity, Shannon_Entropy, Diversity_MeanInterList, Diversity_Herfindahl
 
 

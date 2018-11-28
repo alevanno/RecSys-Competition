@@ -1,43 +1,16 @@
 import numpy as np
-from pathlib import Path
-import os
-import pandas as pd
-from scipy.sparse import coo_matrix
-from Compute_Similarity_Python import Compute_Similarity_Python
-from evaluation_function import evaluate_algorithm
-from data_splitter import train_test_holdout
+from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
+from Recommenders.Utilities.evaluation_function import evaluate_algorithm
+from Recommenders.Utilities.data_splitter import train_test_holdout
 import matplotlib.pyplot as pyplot
-
-train_path = Path("data")/"train.csv"
-target_path = Path('data')/'target_playlists.csv'
+from Recommenders.Utilities.data_matrix import Data_matrix_utility
 
 """
 Here an Item-based CF recommender is implemented
 """
-################################################################################
-class Data_matrix_utility(object):
-    def __init__(self, path):
-        self.train_path = path
-
-    def build_matrix(self):   #for now it works only for URM
-        data = pd.read_csv(self.train_path)
-        n_playlists = data.nunique().get('playlist_id')
-        n_tracks = data.nunique().get('track_id')
-
-        playlists_array = self.extract_array_from_dataFrame(data, ['track_id'])
-        track_array = self.extract_array_from_dataFrame(data, ['playlist_id'])
-        implicit_rating = np.ones_like(np.arange(len(track_array)))
-        urm = coo_matrix((implicit_rating, (playlists_array, track_array)), \
-                            shape=(n_playlists, n_tracks))
-        return urm
-
-    def extract_array_from_dataFrame(self, data, columns_list_to_drop):
-        array = data.drop(columns=columns_list_to_drop).get_values()
-        return array.T.squeeze() #transform a nested array in array and transpose it
-################################################################################
 
 ################################################################################
-class CF_recommender(object):
+class Item_based_CF_recommender(object):
     def __init__(self, urm_csr):
         self.urm_csr = urm_csr
 
@@ -69,10 +42,10 @@ class CF_recommender(object):
 ################################################################################
 
 if __name__ == '__main__':
-    utility = Data_matrix_utility(train_path)
-    urm_complete = utility.build_matrix()
+    utility = Data_matrix_utility()
+    urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
-    recommender = CF_recommender(urm_train)
+    recommender = Item_based_CF_recommender(urm_train)
 
     '''K_results = []
     for k in range(45,100,5): 

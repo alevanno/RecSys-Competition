@@ -12,9 +12,9 @@ import time
 
 import numpy as np
 import scipy.sparse as sps
-from Recommender_utils import similarityMatrixTopK
+from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
 
-from Base.Recommender import Recommender
+from Recommenders.Utilities.Base.Recommender import Recommender
 
 
 class SLIM_BPR_Mono(Recommender):

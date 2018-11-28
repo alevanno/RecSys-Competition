@@ -13,10 +13,10 @@ import numpy as np
 import theano
 import theano.sparse
 import theano.tensor as T
-from Recommender_utils import similarityMatrixTopK
+from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
 
-from BPR.BPR_Sampling import BPR_Sampling
-from Base.Recommender import Recommender
+from Recommenders.ML_recommenders.SLIM_BPR.BPR_Sampling import BPR_Sampling
+from Recommenders.Utilities.Base.Recommender import Recommender
 
 
 class SLIM_BPR_Theano(BPR_Sampling, Recommender):

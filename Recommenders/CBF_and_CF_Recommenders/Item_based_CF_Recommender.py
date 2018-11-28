@@ -1,40 +1,14 @@
 import numpy as np
-from pathlib import Path
-import os
-import pandas as pd
-from scipy.sparse import coo_matrix
-from Compute_Similarity_Python import Compute_Similarity_Python
+from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
+from Recommenders.Utilities.data_matrix import Data_matrix_utility
 
-train_path = Path("data")/"train.csv"
-target_path = Path('data')/'target_playlists.csv'
 
 """
 Here an Item-based CF recommender is implemented
 """
-################################################################################
-class Data_matrix_utility(object):
-    def __init__(self, path):
-        self.train_path = path
-
-    def build_matrix(self):   #for now it works only for URM
-        data = pd.read_csv(self.train_path)
-        n_playlists = data.nunique().get('playlist_id')
-        n_tracks = data.nunique().get('track_id')
-
-        playlists_array = self.extract_array_from_dataFrame(data, ['track_id'])
-        track_array = self.extract_array_from_dataFrame(data, ['playlist_id'])
-        implicit_rating = np.ones_like(np.arange(len(track_array)))
-        urm = coo_matrix((implicit_rating, (playlists_array, track_array)), \
-                            shape=(n_playlists, n_tracks))
-        return urm
-
-    def extract_array_from_dataFrame(self, data, columns_list_to_drop):
-        array = data.drop(columns=columns_list_to_drop).get_values()
-        return array.T.squeeze() #transform a nested array in array and transpose it
-################################################################################
 
 ################################################################################
-class CF_recommender(object):
+class Item_based_CF_recommender(object):
     def __init__(self, urm_csr):
         self.urm_csr = urm_csr
 
@@ -68,9 +42,8 @@ class CF_recommender(object):
 def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
-    targets_df = pd.read_csv(target_path)
-    targets_array = targets_df.get_values().squeeze()
-    recommender = CF_recommender(urm_csr)
+    targets_array = utility.get_target_list()
+    recommender = Item_based_CF_recommender(urm_csr)
     recommender.fit(topK=85, shrink=20)
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
@@ -81,7 +54,7 @@ def provide_recommendations(urm):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
 if __name__ == '__main__':
-    utility = Data_matrix_utility(train_path)
-    provide_recommendations(utility.build_matrix())
+    utility = Data_matrix_utility()
+    provide_recommendations(utility.build_urm_matrix())
 
 ###############################################################################

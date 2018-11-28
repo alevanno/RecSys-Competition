@@ -7,17 +7,17 @@ Created on 07/09/17
 """
 
 
-from Base.Recommender import Recommender
-from Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
-from Base.Recommender_utils import similarityMatrixTopK
-from Base.Incremental_Training_Early_Stopping import Incremental_Training_Early_Stopping
+from Recommenders.Utilities.Base.Recommender import Recommender
+from Recommenders.Utilities.Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
+from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
+from Recommenders.Utilities.Base.Incremental_Training_Early_Stopping import Incremental_Training_Early_Stopping
 
 
 import subprocess
 import os, sys, time
 
 import numpy as np
-from Base.Evaluation.Evaluator import SequentialEvaluator
+from Recommenders.Utilities.Base.Evaluation.Evaluator import SequentialEvaluator
 
 
 

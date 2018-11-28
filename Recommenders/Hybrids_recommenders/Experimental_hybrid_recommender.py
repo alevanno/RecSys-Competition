@@ -1,38 +1,10 @@
 import numpy as np
-from pathlib import Path
-import os
-import pandas as pd
-from scipy.sparse import coo_matrix
-from Compute_Similarity_Python import Compute_Similarity_Python
 from sklearn.preprocessing import StandardScaler
-from evaluation_function import evaluate_algorithm
-from data_splitter import train_test_holdout
+from Recommenders.Utilities.evaluation_function import evaluate_algorithm
+from Recommenders.Utilities.data_splitter import train_test_holdout
 import matplotlib.pyplot as pyplot
-
-train_path = Path("data")/"train.csv"
-target_path = Path('data')/'target_playlists.csv'
-
-################################################################################
-class Data_matrix_utility(object):
-    def __init__(self, path):
-        self.train_path = path
-
-    def build_matrix(self):   #for now it works only for URM
-        data = pd.read_csv(self.train_path)
-        n_playlists = data.nunique().get('playlist_id')
-        n_tracks = data.nunique().get('track_id')
-
-        playlists_array = self.extract_array_from_dataFrame(data, ['track_id'])
-        track_array = self.extract_array_from_dataFrame(data, ['playlist_id'])
-        implicit_rating = np.ones_like(np.arange(len(track_array)))
-        urm = coo_matrix((implicit_rating, (playlists_array, track_array)), \
-                            shape=(n_playlists, n_tracks))
-        return urm
-
-    def extract_array_from_dataFrame(self, data, columns_list_to_drop):
-        array = data.drop(columns=columns_list_to_drop).get_values()
-        return array.T.squeeze() #transform a nested array in array and transpose it
-################################################################################
+from Recommenders.Utilities.data_matrix import Data_matrix_utility
+from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
 
 ################################################################################
 class User_based_CF_recommender(object):
@@ -70,8 +42,9 @@ class Item_based_CF_recommender(object):
         scores = target_profile.dot(self.similarity_csr).toarray().ravel()
         return scores
 ################################################################################
+
 ################################################################################
-class Hybrid_recommender(object):
+class User_Item_CF_Hybrid_recommender(object):
     def __init__(self, urm_csr, i, u):
         self.urm_csr = urm_csr
         self.item_based_rec = Item_based_CF_recommender(self.urm_csr)
@@ -114,9 +87,8 @@ class Hybrid_recommender(object):
 def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
-    targets_df = pd.read_csv(target_path)
-    targets_array = targets_df.get_values().squeeze()
-    recommender = Hybrid_recommender(urm_csr, 0.6, 0.4)
+    targets_array = utility.get_target_list()
+    recommender = User_Item_CF_Hybrid_recommender(urm_csr, 0.6, 0.4)
     recommender.fit()
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
@@ -127,8 +99,8 @@ def provide_recommendations(urm):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
 if __name__ == '__main__':
-    utility = Data_matrix_utility(train_path)
-    provide_recommendations(utility.build_matrix())
+    utility = Data_matrix_utility()
+    provide_recommendations(utility.build_urm_matrix())
     """
     urm_complete = utility.build_matrix()
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete
