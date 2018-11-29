@@ -6,8 +6,8 @@
 """
 
 import numpy as np
-from Base.Recommender import Recommender
-from Base.Recommender_utils import check_matrix
+from Recommenders.Utilities.Base.Recommender import Recommender
+from Recommenders.Utilities.Base.Recommender_utils import check_matrix
 
 
 class TopPop(Recommender):

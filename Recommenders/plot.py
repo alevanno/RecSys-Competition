@@ -3,8 +3,8 @@ from pathlib import Path
 import os
 import pandas as pd
 from scipy.sparse import coo_matrix
-from User_based_CF_Recommender import CF_recommender
-from data_splitter import train_test_holdout
+from Recommenders.CBF_and_CF_Recommenders.User_based_CF_Recommender import User_based_CF_recommender
+from Recommenders.Utilities.data_splitter import train_test_holdout
 
 train_path = Path("data")/"train.csv"
 target_path = Path('data')/'target_playlists.csv'

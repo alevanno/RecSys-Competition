@@ -6,7 +6,7 @@ Created on 30/09/17
 @author: Maurizio Ferrari Dacrema
 """
 
-from Base.Recommender_utils import similarityMatrixTopK
+from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
 
 import numpy as np
 import scipy.sparse as sps
