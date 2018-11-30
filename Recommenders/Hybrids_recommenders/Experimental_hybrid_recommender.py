@@ -103,7 +103,7 @@ if __name__ == '__main__':
     provide_recommendations(utility.build_urm_matrix())
     """
     urm_complete = utility.build_matrix()
-    urm_train, urm_test = train_test_holdout(URM_all = urm_complete
+    urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
 
 
     i= []
