@@ -11,6 +11,8 @@ from Recommenders.Utilities.Base.Recommender import Recommender
 from Recommenders.Utilities.Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
 from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
 from Recommenders.Utilities.Base.Incremental_Training_Early_Stopping import Incremental_Training_Early_Stopping
+from Recommenders.Utilities.data_matrix import Data_matrix_utility
+from Recommenders.Utilities.data_splitter import train_test_holdout
 
 
 import subprocess
@@ -30,7 +32,7 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
     RECOMMENDER_NAME = "SLIM_BPR_Recommender"
 
 
-    def __init__(self, URM_train, positive_threshold=4, URM_validation = None,
+    def __init__(self, URM_train, positive_threshold=1, URM_validation = None,
                  recompile_cython = False, final_model_sparse_weights = True, train_with_sparse_weights = False,
                  symmetric = True):
 
@@ -97,7 +99,7 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
 
 
         # Import compiled module
-        import pyximport; pyximport.install()
+
         from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython_Epoch import SLIM_BPR_Cython_Epoch
 
         # Select only positive interactions
@@ -188,6 +190,8 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
         else:
             if self.sparse_weights:
                 self.W_sparse = similarityMatrixTopK(self.S_incremental, k = self.topK)
+                print(self.W_sparse.mean())
+                print(self.W_sparse.shape)
             else:
                 self.W = self.S_incremental
 
@@ -260,3 +264,14 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
         # Command to generate html report
         # cython -a SLIM_BPR_Cython_Epoch.pyx
 
+if __name__ == '__main__':
+    utility = Data_matrix_utility()
+    #provide_recommendations(utility.build_urm_matrix())
+
+    urm_complete = utility.build_urm_matrix()
+    urm_train, urm_validation = train_test_holdout(URM_all=urm_complete)
+    recommender = SLIM_BPR_Cython(URM_train=urm_train, URM_validation=urm_validation)
+
+    recommender.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01, stop_on_validation=True,\
+                    validation_every_n=50)
+   # print(recommender.evaluateRecommendations(URM_test=urm_validation, at=10))

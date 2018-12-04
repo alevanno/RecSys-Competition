@@ -11,7 +11,6 @@ import scipy.sparse as sps
 from Recommenders.Utilities.Base.Recommender_utils import check_matrix
 from Recommenders.Utilities.Base.SimilarityMatrixRecommender import *
 from sklearn.linear_model import ElasticNet
-from Recommenders.Utilities.Base.Recommender import Recommender
 
 class MultiThreadSLIM_ElasticNet(SLIMElasticNetRecommender, SimilarityMatrixRecommender):
 
@@ -78,38 +77,52 @@ class MultiThreadSLIM_ElasticNet(SLIMElasticNetRecommender, SimilarityMatrixReco
 
         self.workers = workers
 
-        URM_train = check_matrix(self.URM_train, 'csc', dtype=np.float32)
-        n_items = self.URM_train.shape[1]
-        # fit item's factors in parallel
+        try:
 
-        # oggetto riferito alla funzione nel quale predefinisco parte dell'input
-        _pfit = partial(self._partial_fit, X=URM_train, topK=self.topK, alpha=alpha)
+            self.W_sparse = self.loadModel()
 
-        # creo un pool con un certo numero di processi
-        pool = Pool(processes=self.workers)
+        except IOError:
 
-        # avvio il pool passando la funzione (con la parte fissa dell'input)
-        # e il rimanente parametro, variabile
-        res = pool.map(_pfit, np.arange(n_items))
+            URM_train = check_matrix(self.URM_train, 'csc', dtype=np.float32)
+            n_items = self.URM_train.shape[1]
+            # fit item's factors in parallel
 
-        # res contains a vector of (values, rows, cols) tuples
-        values, rows, cols = [], [], []
-        for values_, rows_, cols_ in res:
-            values.extend(values_)
-            rows.extend(rows_)
-            cols.extend(cols_)
+            # oggetto riferito alla funzione nel quale predefinisco parte dell'input
+            _pfit = partial(self._partial_fit, X=URM_train, topK=self.topK, alpha=alpha)
 
-        # generate the sparse weight matrix
-        self.W_sparse = sps.csc_matrix((values, (rows, cols)), shape=(n_items, n_items), dtype=np.float32)
+            # creo un pool con un certo numero di processi
+            pool = Pool(processes=self.workers)
+
+            # avvio il pool passando la funzione (con la parte fissa dell'input)
+            # e il rimanente parametro, variabile
+            res = pool.map(_pfit, np.arange(n_items))
+
+            # res contains a vector of (values, rows, cols) tuples
+            values, rows, cols = [], [], []
+            for values_, rows_, cols_ in res:
+                values.extend(values_)
+                rows.extend(rows_)
+                cols.extend(cols_)
+
+            # generate the sparse weight matrix
+            self.W_sparse = sps.csc_matrix((values, (rows, cols)), shape=(n_items, n_items), dtype=np.float32)
+            self.saveModel()
+
+    def saveModel(self, file_name='SLIM_ElasticNet.npz'):
+        sps.save_npz(file=file_name, matrix=self.W_sparse)
+
+    def loadModel(self, file_name='SLIM_ElasticNet.npz'):
+        return sps.load_npz(file=file_name)
 
 ############################################################################################################
 
 def provide_recommendations(urm):
     recommendations = {}
-    urm_csr = urm.tocsc()
+    urm_csr = urm.tocsr()
     targets_array = utility.get_target_list()
     l1_value = 1e-05
     l2_value = 0.002
+    recommender = MultiThreadSLIM_ElasticNet(urm_csr)
     recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value, \
             l2_penalty=l2_value)
     recommended_list = recommender.recommend(user_id_array=targets_array, cutoff=10)
@@ -139,4 +152,4 @@ if __name__ == '__main__':
         print("k=" + str(k))
         recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value,\
                 l2_penalty=l2_value, topK=k)
-        print(recommender.evaluateRecommendations(URM_test=urm_test))
+        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))

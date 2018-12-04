@@ -21,6 +21,9 @@ class Item_based_CF_recommender(object):
 #I pass the transpose of urm to calculate the similarity between playlists.
 #I obtain a similarity matrix of dimension = number of playlists * number_of_playlists
         self.similarity_csr = similarity_object.compute_similarity()
+        for i in range(self.similarity_csr.shape[1]):
+            col = self.similarity_csr.getcol(i)
+            print(col.mean())
 
     def recommend(self, target_id, n_tracks=None, exclude_seen=True):
         target_profile = self.urm_csr.getrow(target_id)
@@ -46,8 +49,9 @@ if __name__ == '__main__':
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
     recommender = Item_based_CF_recommender(urm_train)
-
-    '''K_results = []
+    recommender.fit(topK=150, shrink=20)
+    '''
+    K_results = []
     for k in range(45,100,5): 
         print('Evaluating topK = ' + str(k))
         recommender.fit(topK=k,shrink=20)
@@ -57,7 +61,7 @@ if __name__ == '__main__':
 
     #best with topk=150+ and shrink = 0 (0.1032)
     #best with topk=85 and shrink = 20 (0.1075)
-    '''
+    
     shrink_result = []
     for value in range(15,21):
         print('Evaluating shrink = ' + str(value))
@@ -69,7 +73,7 @@ if __name__ == '__main__':
     #best with 19-21 and default topk (0.1071)
     
     
-    '''
+    
     pyplot.plot(K_values, K_results)
     pyplot.ylabel('MAP')
     pyplot.xlabel('TopK')

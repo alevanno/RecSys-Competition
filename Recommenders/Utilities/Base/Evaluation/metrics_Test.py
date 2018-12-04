@@ -15,7 +15,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_Gini_Index(self):
 
-        from Base.Evaluation.metrics import Gini_Diversity
+        from Recommenders.Utilities.Base.Evaluation.metrics import Gini_Diversity
 
         n_items = 1000
 
@@ -35,7 +35,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_Shannon_Entropy(self):
 
-        from Base.Evaluation.metrics import Shannon_Entropy
+        from Recommenders.Utilities.Base.Evaluation.metrics import Shannon_Entropy
 
         n_items = 1000
 

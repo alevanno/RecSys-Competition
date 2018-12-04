@@ -5,46 +5,12 @@ from Recommenders.Utilities.data_splitter import train_test_holdout
 import matplotlib.pyplot as pyplot
 from Recommenders.Utilities.data_matrix import Data_matrix_utility
 from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
+from Recommenders.CBF_and_CF_Recommenders.Item_based_CF_Recommender import Item_based_CF_recommender
+from Recommenders.CBF_and_CF_Recommenders.User_based_CF_Recommender import User_based_CF_recommender
+
 
 ################################################################################
-class User_based_CF_recommender(object):
-    def __init__(self, urm_csr):
-        self.urm_csr = urm_csr
-
-    def fit(self, topK=50, shrink=100, normalize = True, similarity = "cosine"):
-        similarity_object = Compute_Similarity_Python(self.urm_csr.transpose(), shrink=shrink,\
-                                                  topK=topK, normalize=normalize,\
-                                                  similarity = similarity)
-#I pass the transpose of urm to calculate the similarity between playlists.
-#I obtain a similarity matrix of dimension = number of playlists * number_of_playlists
-        self.similarity_csr = similarity_object.compute_similarity()
-
-    def recommend(self, target_id):
-        target_profile = self.similarity_csr.getrow(target_id)
-        scores = target_profile.dot(self.urm_csr).toarray().ravel()
-        return scores
-################################################################################
-################################################################################
-class Item_based_CF_recommender(object):
-    def __init__(self, urm_csr):
-        self.urm_csr = urm_csr
-
-    def fit(self, topK=50, shrink=100, normalize = True, similarity = "cosine"):
-        similarity_object = Compute_Similarity_Python(self.urm_csr, shrink=shrink,\
-                                                  topK=topK, normalize=normalize,\
-                                                  similarity = similarity)
-#I pass the transpose of urm to calculate the similarity between playlists.
-#I obtain a similarity matrix of dimension = number of playlists * number_of_playlists
-        self.similarity_csr = similarity_object.compute_similarity()
-
-    def recommend(self, target_id):
-        target_profile = self.urm_csr.getrow(target_id)
-        scores = target_profile.dot(self.similarity_csr).toarray().ravel()
-        return scores
-################################################################################
-
-################################################################################
-class User_Item_CF_Hybrid_recommender(object):
+class User_Item_CF_Hybrid_recommender():
     def __init__(self, urm_csr, i, u):
         self.urm_csr = urm_csr
         self.item_based_rec = Item_based_CF_recommender(self.urm_csr)
@@ -62,14 +28,14 @@ class User_Item_CF_Hybrid_recommender(object):
         scaler.fit(array)
         return scaler.transform(array).ravel()
 
-    def recommend(self, target_id, n_tracks=None, exclude_seen=True):
-        item_based_scores = self.item_based_rec.recommend(target_id)
-        user_based_scores = self.user_based_rec.recommend(target_id)
+    def recommend(self, user_id, n_tracks=None, remove_seen_flag=True):
+        item_based_scores = np.ravel(self.item_based_rec.compute_score_item_based(user_id))
+        user_based_scores = np.ravel(self.user_based_rec.compute_score_user_based(user_id))
         item_based_std_scores = self.standardize(item_based_scores)
         user_based_std_scores = self.standardize(user_based_scores)
         scores = np.add(self.i*item_based_std_scores, self.u*user_based_std_scores)
-        if exclude_seen:
-            scores = self.filter_seen(target_id, scores)
+        if remove_seen_flag:
+            scores = self.filter_seen(user_id, scores)
 
         # rank items
         ranking = scores.argsort()[::-1]
@@ -91,7 +57,7 @@ def provide_recommendations(urm):
     recommender = User_Item_CF_Hybrid_recommender(urm_csr, 0.6, 0.4)
     recommender.fit()
     for target in targets_array:
-        recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
+        recommendations[target] = recommender.recommend(user_id=target, n_tracks=10)
 
     with open('weighted_experimental_hybrid_recommendations.csv', 'w') as f:
         f.write('playlist_id,track_ids\n')
@@ -100,12 +66,16 @@ def provide_recommendations(urm):
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
-    provide_recommendations(utility.build_urm_matrix())
-    """
-    urm_complete = utility.build_matrix()
-    urm_train, urm_test = train_test_holdout(URM_all = urm_complete)
+   # provide_recommendations(utility.build_urm_matrix())
 
+    urm_complete = utility.build_urm_matrix()
+    urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
 
+    recommender = User_Item_CF_Hybrid_recommender(urm_train, 0.6, 0.4)
+    recommender.fit()
+    print(evaluate_algorithm(URM_test=urm_test, recommender_object=recommender, at=10))
+
+"""
     i= []
     for value in i:
         recommender = Hybrid_recommender(urm_train, 1, value)

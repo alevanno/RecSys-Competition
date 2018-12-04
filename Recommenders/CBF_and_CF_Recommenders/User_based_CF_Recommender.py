@@ -1,42 +1,108 @@
+
 import numpy as np
 from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
 from Recommenders.Utilities.data_matrix import Data_matrix_utility
-
+from Recommenders.Utilities.Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
+from Recommenders.Utilities.Base.Recommender import Recommender
+from Recommenders.Utilities.data_splitter import train_test_holdout
 
 """
 Here a User-based CF recommender is implemented
 """
 
 ################################################################################
-class User_based_CF_recommender(object):
-    def __init__(self, urm_csr):
-        self.urm_csr = urm_csr
+class User_based_CF_recommender(SimilarityMatrixRecommender, Recommender):
+    def __init__(self, URM_train):
+        super(User_based_CF_recommender, self).__init__()
+        self.URM_train = URM_train
 
     def fit(self, topK=50, shrink=100, normalize = True, similarity = "cosine"):
-        similarity_object = Compute_Similarity_Python(self.urm_csr.transpose(), shrink=shrink,\
+        similarity_object = Compute_Similarity_Python(self.URM_train.transpose(), shrink=shrink,\
                                                   topK=topK, normalize=normalize,\
                                                   similarity = similarity)
 #I pass the transpose of urm to calculate the similarity between playlists.
 #I obtain a similarity matrix of dimension = number of playlists * number_of_playlists
-        self.similarity_csr = similarity_object.compute_similarity()
+        self.W_sparse = similarity_object.compute_similarity()
 
-    def recommend(self, target_id, n_tracks=None, exclude_seen=True):
-        target_profile = self.similarity_csr.getrow(target_id)
-        scores = target_profile.dot(self.urm_csr).toarray().ravel()
-        if exclude_seen:
-            scores = self.filter_seen(target_id, scores)
+    def recommend(self, user_id_array, cutoff = None, remove_seen_flag=True, remove_top_pop_flag = False, remove_CustomItems_flag = False):
 
-        # rank items
-        ranking = scores.argsort()[::-1]
-        return ranking[:n_tracks]
+        # If is a scalar transform it in a 1-cell array
+        if np.isscalar(user_id_array):
+            user_id_array = np.atleast_1d(user_id_array)
+            single_user = True
+        else:
+            single_user = False
 
-    def filter_seen(self, target_id, scores):
-        start_pos = self.urm_csr.indptr[target_id] #extracts the column in which the target start
-        end_pos = self.urm_csr.indptr[target_id+1] #extracts the column in which the target ends
-        target_profile = self.urm_csr.indices[start_pos:end_pos] #extracts the columns indexes
-                                #in which we can find the non zero values in target
-        scores[target_profile] = -np.inf
-        return scores
+
+        if cutoff is None:
+            cutoff = self.URM_train.shape[1] - 1
+
+        # Compute the scores using the model-specific function
+        # Vectorize over all users in user_id_array
+        scores_batch = self.compute_score_user_based(user_id_array)
+
+
+        # if self.normalize:
+        #     # normalization will keep the scores in the same range
+        #     # of value of the ratings in dataset
+        #     user_profile = self.URM_train[user_id]
+        #
+        #     rated = user_profile.copy()
+        #     rated.data = np.ones_like(rated.data)
+        #     if self.sparse_weights:
+        #         den = rated.dot(self.W_sparse).toarray().ravel()
+        #     else:
+        #         den = rated.dot(self.W).ravel()
+        #     den[np.abs(den) < 1e-6] = 1.0  # to avoid NaNs
+        #     scores /= den
+
+
+        for user_index in range(len(user_id_array)):
+
+            user_id = user_id_array[user_index]
+
+            if remove_seen_flag:
+                scores_batch[user_index,:] = self._remove_seen_on_scores(user_id, scores_batch[user_index, :])
+
+            # Sorting is done in three steps. Faster then plain np.argsort for higher number of items
+            # - Partition the data to extract the set of relevant items
+            # - Sort only the relevant items
+            # - Get the original item index
+            # relevant_items_partition = (-scores_user).argpartition(cutoff)[0:cutoff]
+            # relevant_items_partition_sorting = np.argsort(-scores_user[relevant_items_partition])
+            # ranking = relevant_items_partition[relevant_items_partition_sorting]
+            #
+            # ranking_list.append(ranking)
+
+
+        if remove_top_pop_flag:
+            scores_batch = self._remove_TopPop_on_scores(scores_batch)
+
+        if remove_CustomItems_flag:
+            scores_batch = self._remove_CustomItems_on_scores(scores_batch)
+
+        # scores_batch = np.arange(0,3260).reshape((1, -1))
+        # scores_batch = np.repeat(scores_batch, 1000, axis = 0)
+
+        # relevant_items_partition is block_size x cutoff
+        relevant_items_partition = (-scores_batch).argpartition(cutoff, axis=1)[:,0:cutoff]
+
+        # Get original value and sort it
+        # [:, None] adds 1 dimension to the array, from (block_size,) to (block_size,1)
+        # This is done to correctly get scores_batch value as [row, relevant_items_partition[row,:]]
+        relevant_items_partition_original_value = scores_batch[np.arange(scores_batch.shape[0])[:, None], relevant_items_partition]
+        relevant_items_partition_sorting = np.argsort(-relevant_items_partition_original_value, axis=1)
+        ranking = relevant_items_partition[np.arange(relevant_items_partition.shape[0])[:, None], relevant_items_partition_sorting]
+
+        ranking_list = ranking.tolist()
+
+
+        # Return single list for one user, instead of list of lists
+        if single_user:
+            ranking_list = ranking_list[0]
+
+        return ranking_list
+
 ################################################################################
 
 def provide_recommendations(urm):
@@ -44,9 +110,10 @@ def provide_recommendations(urm):
     urm_csr = urm.tocsr()
     targets_array = utility.get_target_list()
     recommender = User_based_CF_recommender(urm_csr)
-    recommender.fit(shrink=0)
-    for target in targets_array:
-        recommendations[target] = recommender.recommend(target_id=target,n_tracks=10)
+    recommender.fit(shrink=2, topK=180)
+    recommendetions_array = recommender.recommend(user_id_array=targets_array, cutoff=10)
+    for index in range(len(targets_array)):
+        recommendations[targets_array[index]] = recommendetions_array[index]
 
     with open('user_based_CF_recommendations.csv', 'w') as f:
         f.write('playlist_id,track_ids\n')
@@ -55,27 +122,12 @@ def provide_recommendations(urm):
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
-    provide_recommendations(utility.build_matrix())
+    #provide_recommendations(utility.build_urm_matrix())
+    urm_complete = utility.build_urm_matrix()
+    urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
+    recommender = User_based_CF_recommender(urm_train)
+    recommender.fit(shrink=2, topK=180)
 
-###############################################################################
-"""
-Results:
-- Execution time = 1.90 min (1.40 to compute similarity + 0.5 for the rest)
-- MAP on Public Test Set: 0.07657
+    print(recommender.evaluateRecommendations(URM_test=urm_test))
 
-TODO:
-1. testare su un validation set differenti valori di k (del topk), plottando su un
-  grafico come varia il MAP al variare di k e usare il k che massimizzi il MAP
-2. Fare lo stesso procedimento del punto 1 per lo shrink (quindi plottare il grafico
-del MAP in funzione dello shrink e prendere lo shrink per cui il MAP del validation set
-è massimo)
-3. Provare a scrivere il CF item based recommender e paragonare le performance rispetto
-allo user-based
-
-REFERENCES
-Per i primi 2 punti guardare il notebook "Practice 3 - Content Based Filtering"
-per avere un'idea su come plottare i grafici. Per dividere il train set in train e
-validation sets importare data_splitter.py contenuto in questa stessa cartella.
-Per farsi un'idea di quali valori di k e shrink provare nei punti 1 e 2 attenersi
-a quanto detto dal prof in classe.
-"""
+###########################################################################################

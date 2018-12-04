@@ -9,8 +9,8 @@ Created on 06/06/18
 import numpy as np
 import scipy.sparse as sps
 
-from Base.Similarity.Compute_Similarity_Python import Compute_Similarity_Python
-from Base.Similarity.Compute_Similarity_Euclidean import Compute_Similarity_Euclidean
+from Recommenders.Utilities.Base.Similarity.Compute_Similarity_Python import Compute_Similarity_Python
+from Recommenders.Utilities.Base.Similarity.Compute_Similarity_Euclidean import Compute_Similarity_Euclidean
 
 
 from enum import Enum

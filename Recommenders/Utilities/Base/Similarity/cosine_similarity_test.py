@@ -7,8 +7,7 @@ Created on 23/10/17
 """
 
 import unittest
-from data.Movielens_10m.Movielens10MReader import Movielens10MReader
-from Base.Recommender_utils import similarityMatrixTopK
+from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
 import subprocess, os
 import numpy as np
 import time
@@ -30,9 +29,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity_Python as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity_Python as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         TopK = 0
 
@@ -59,9 +58,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_row_weighted(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity_Python as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity_Python as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         TopK = 0
 
@@ -92,9 +91,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_external_cfr(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity_Python as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity_Python as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
         from sklearn.metrics.pairwise import cosine_similarity as Cosine_Similarity_Sklearn
 
 
@@ -164,9 +163,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_normalize(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         import numpy.matlib
 
@@ -205,9 +204,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_adjusted(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         import numpy.matlib
 
@@ -254,9 +253,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_pearson(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         import numpy.matlib
 
@@ -303,9 +302,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_jaccard(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         import numpy.matlib
 
@@ -349,9 +348,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_dense_big(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         TopK = 0
         n_items = 500
@@ -379,9 +378,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_TopK(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
         TopK=4
 
@@ -411,9 +410,9 @@ class MyTestCase(unittest.TestCase):
 
     def test_cosine_similarity_TopK_big(self):
 
-        from Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
-        from Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
-        from Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
+        from Recommenders.Utilities.Base.Cython.cosine_similarity import Cosine_Similarity as Cosine_Similarity_Cython
+        from Recommenders.Utilities.Base.cosine_similarity import Compute_Similarity as Cosine_Similarity_Python
+        from Recommenders.Utilities.Base.cosine_similarity_parallel import Cosine_Similarity_Parallel as Cosine_Similarity_Parallel
 
 
         n_items = 500

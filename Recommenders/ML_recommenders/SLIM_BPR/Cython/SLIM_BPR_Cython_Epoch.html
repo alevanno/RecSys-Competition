@@ -392,7 +392,7 @@ body.cython { font-family: courier; font-size: 12; }
 <pre class="cython line score-0">&#xA0;<span class="">0015</span>: </pre>
 <pre class="cython line score-0">&#xA0;<span class="">0016</span>: <span class="c">#defining NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION</span></pre>
 <pre class="cython line score-0">&#xA0;<span class="">0017</span>: </pre>
-<pre class="cython line score-29" onclick='toggleDiv(this)'>+<span class="">0018</span>: <span class="k">from</span> <span class="nn">Base.Recommender_utils</span> <span class="k">import</span> <span class="n">similarityMatrixTopK</span><span class="p">,</span> <span class="n">check_matrix</span></pre>
+<pre class="cython line score-29" onclick='toggleDiv(this)'>+<span class="">0018</span>: <span class="k">from</span> <span class="nn">Recommenders.Utilities.Base.Recommender_utils</span> <span class="k">import</span> <span class="n">similarityMatrixTopK</span><span class="p">,</span> <span class="n">check_matrix</span></pre>
 <pre class='cython code score-29 '>  __pyx_t_1 = <span class='py_c_api'>PyList_New</span>(2);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)</span>
   <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
   <span class='pyx_macro_api'>__Pyx_INCREF</span>(__pyx_n_s_similarityMatrixTopK);
@@ -401,7 +401,7 @@ body.cython { font-family: courier; font-size: 12; }
   <span class='pyx_macro_api'>__Pyx_INCREF</span>(__pyx_n_s_check_matrix);
   <span class='refnanny'>__Pyx_GIVEREF</span>(__pyx_n_s_check_matrix);
   <span class='py_macro_api'>PyList_SET_ITEM</span>(__pyx_t_1, 1, __pyx_n_s_check_matrix);
-  __pyx_t_2 = <span class='pyx_c_api'>__Pyx_Import</span>(__pyx_n_s_Base_Recommender_utils, __pyx_t_1, -1);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)</span>
+  __pyx_t_2 = <span class='pyx_c_api'>__Pyx_Import</span>(__pyx_n_s_Recommenders_Utilities_Base_Reco, __pyx_t_1, -1);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 18, __pyx_L1_error)</span>
   <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
   <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_t_1 = <span class='pyx_c_api'>__Pyx_ImportFrom</span>(__pyx_t_2, __pyx_n_s_similarityMatrixTopK);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 18, __pyx_L1_error)</span>
