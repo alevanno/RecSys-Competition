@@ -207,6 +207,7 @@ if __name__ == '__main__':
     topK_array = [100, 120, 150, 200]
     l1_value = 1e-05
     l2_value = 0.002
+    urm_csr = urm_train.tocsr()
     recommender = SLIMElasticNetRecommender(urm_train)
     for k in topK_array:
         print("k=" + str(k))

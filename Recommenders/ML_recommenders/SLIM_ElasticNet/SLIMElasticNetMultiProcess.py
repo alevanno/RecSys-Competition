@@ -152,4 +152,9 @@ if __name__ == '__main__':
         print("k=" + str(k))
         recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value,\
                 l2_penalty=l2_value, topK=k)
+
         print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+        print("Ignoring users with few interactions...")
+        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10, filterCustomUsers=utility.user_to_neglect()))
+        print("Ignoring users with large interaction")
+        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10, filterCustomUsers=utility.user_to_neglect(intensity_interaction='large')))

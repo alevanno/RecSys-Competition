@@ -32,6 +32,7 @@ class Data_matrix_utility(object):
 
     def build_urm_matrix(self):
         data = pd.read_csv(train_path)
+
         n_playlists = data.nunique().get('playlist_id')
         n_tracks = data.nunique().get('track_id')
 
@@ -49,3 +50,35 @@ class Data_matrix_utility(object):
     def extract_array_from_dataFrame(self, data, columns_list_to_drop):
         array = data.drop(columns=columns_list_to_drop).get_values()
         return array.T.squeeze() #transform a nested array in array and transpose it
+
+    def user_to_neglect(self, intensity_interaction='few', n_interactions=30):
+        data = pd.read_csv(train_path)
+        playlists_array = set(self.extract_array_from_dataFrame(data, ['track_id']))
+        playlists_df = data.drop(columns=['track_id'])
+        playlist_count = playlists_df['playlist_id'].value_counts()
+
+        user_to_neglect = []
+        for user in playlists_array:
+            if intensity_interaction == 'few':
+                if playlist_count[user] < n_interactions:
+                    user_to_neglect.append(user)
+            else:
+                if playlist_count[user] >= n_interactions:
+                    user_to_neglect.append(user)
+        print("Neglected " + str(len(user_to_neglect)) + " users")
+        return user_to_neglect
+
+    """
+    def item_to_neglect(self):
+        data = pd.read_csv(train_path)
+        
+        tracks_df = data.drop(columns=['playlist_id'])
+        track_count = tracks_df['track_id'].value_counts()
+        n_tracks = data.nunique().get('track_id')
+        item_to_neglect = []
+        for i in range(n_tracks):
+            if track_count[i] < 30:
+                item_to_neglect.append(i)
+        print(len(item_to_neglect))
+        return item_to_neglect
+    """

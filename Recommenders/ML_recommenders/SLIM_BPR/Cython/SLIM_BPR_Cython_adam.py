@@ -271,7 +271,6 @@ if __name__ == '__main__':
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_validation = train_test_holdout(URM_all=urm_complete)
     recommender = SLIM_BPR_Cython(URM_train=urm_train, URM_validation=urm_validation)
-
-    recommender.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01, stop_on_validation=True,\
-                    validation_every_n=50)
-    print(recommender.evaluateRecommendations(URM_test=urm_validation, at=10, filterCustomUsers=utility.user_to_neglect()))
+    recommender.fit(sgd_mode='adam', epochs=50, lambda_i=0.1, lambda_j=0.1, learning_rate=0.001, stop_on_validation=True,\
+                    validation_every_n=5, beta_1=0.9, beta_2=0.9999)
+   # print(recommender.evaluateRecommendations(URM_test=urm_validation, at=10))
