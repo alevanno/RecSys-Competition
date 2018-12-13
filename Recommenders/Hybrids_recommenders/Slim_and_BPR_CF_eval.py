@@ -9,8 +9,9 @@ from Recommenders.Utilities.evaluation_function import evaluate_algorithm
 from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython import SLIM_BPR_Cython
 
 class CF_SLIM_Hybrid_Recommender(object):
-    def __init__(self, urm_csr, scale=True, i=1.0, u=1.0, s=1.0, b=1.0):
+    def __init__(self, urm_csr, urm_test, scale=True, i=1.0, u=1.0, s=1.0, b=1.0):
         self.urm_csr = urm_csr
+        self.urm_test = urm_test
         self.item_based_rec = Item_based_CF_recommender(self.urm_csr)
         self.user_based_rec = User_based_CF_recommender(self.urm_csr)
         self.slim_rec = MultiThreadSLIM_ElasticNet(self.urm_csr)
@@ -22,13 +23,24 @@ class CF_SLIM_Hybrid_Recommender(object):
         self.b = b
 
     def fit(self):
+        print("Testing " + self.item_based_rec.__class__.__name__)
         self.item_based_rec.fit(topK=150, shrink=20)
+        print(self.item_based_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+        print("Testing " + self.user_based_rec.__class__.__name__)
         self.user_based_rec.fit(topK=180, shrink=2)
+        print(self.user_based_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+        print("Testing " + self.slim_rec.__class__.__name__)
         l1_value = 1e-05
         l2_value = 0.002
         k = 150
         self.slim_rec.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+        print(self.slim_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+        print("Testing " + self.bpr_rec.__class__.__name__)
         self.bpr_rec.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+        print(self.bpr_rec.evaluateRecommendations(URM_test=urm_test, at=10))
 
 
     def standardize(self, array):
@@ -90,16 +102,18 @@ def provide_recommendations(urm):
         for i in sorted(recommendations):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
+
 if __name__ == '__main__':
     utility = Data_matrix_utility()
-    """
-    provide_recommendations(utility.build_urm_matrix())
-    """
 
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
-    recommender_list = (Item_based_CF_recommender(urm_train), User_based_CF_recommender(urm_train), MultiThreadSLIM_ElasticNet(urm_train), SLIM_BPR_Cython(URM_train=urm_train))
+    recommender = CF_SLIM_Hybrid_Recommender(urm_csr=urm_train, urm_test=urm_test, scale=True)
+    recommender.fit()
+    """recommender_list = (Item_based_CF_recommender(urm_train), User_based_CF_recommender(urm_train), MultiThreadSLIM_ElasticNet(urm_train), SLIM_BPR_Cython(URM_train=urm_train))
     for recommender in recommender_list:
+        print("Testing " + recommender.__class__.__name__)
         recommender.fit()
-        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+
+        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))"""
     print(evaluate_algorithm(CF_SLIM_Hybrid_Recommender(urm_csr=urm_train, scale=True)))
