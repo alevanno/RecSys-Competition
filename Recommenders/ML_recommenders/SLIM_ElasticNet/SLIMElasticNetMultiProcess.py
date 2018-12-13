@@ -80,6 +80,7 @@ class MultiThreadSLIM_ElasticNet(SLIMElasticNetRecommender, SimilarityMatrixReco
         try:
 
             self.W_sparse = self.loadModel()
+            self.W_sparse = self.W_sparse.tocsr()
 
         except IOError:
 
@@ -105,7 +106,7 @@ class MultiThreadSLIM_ElasticNet(SLIMElasticNetRecommender, SimilarityMatrixReco
                 cols.extend(cols_)
 
             # generate the sparse weight matrix
-            self.W_sparse = sps.csc_matrix((values, (rows, cols)), shape=(n_items, n_items), dtype=np.float32)
+            self.W_sparse = sps.csr_matrix((values, (rows, cols)), shape=(n_items, n_items), dtype=np.float32)
             self.saveModel()
 
     def saveModel(self, file_name='SLIM_ElasticNet.npz'):

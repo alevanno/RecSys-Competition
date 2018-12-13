@@ -87,7 +87,7 @@ def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
     targets_array = utility.get_target_list()
-    recommender = SLIM__BPR_and_CF_Hybrid_Recommender(urm_csr=urm_csr, i=1.0, u=1.0, g=1.0, s=1.0, b=1.0, scale=True)
+    recommender = SLIM__BPR_Graph_and_CF_Hybrid_Recommender(urm_csr=urm_csr, i=1.0, u=1.0, g=1.0, s=1.0, b=1.0, scale=True)
     recommender.fit()
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target, n_tracks=10)
@@ -97,20 +97,27 @@ def provide_recommendations(urm):
         for i in sorted(recommendations):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
-def experiment(i, u, s, b, g, scale):
+def experiment(i, u, s, b, g, scale, urm_validation, exclude_seen=True):
     print("Configuration -> i=" + str(i) + ", u=" + str(u) + ", s=" + str(s) + ", b=" + str(b) + ", g=" + str(g) + ", scale=" + str(scale))
-    recommender = SLIM__BPR_and_CF_Hybrid_Recommender(urm_csr=urm_train, scale=scale, i=i, u=u, s=s, b=b, g=g)
+    recommender = SLIM__BPR_Graph_and_CF_Hybrid_Recommender(urm_csr=urm_train, scale=scale, i=i, u=u, s=s, b=b, g=g)
     recommender.fit()
-    print(evaluate_algorithm(URM_test=urm_test, recommender_object=recommender, at=10))
+    print(evaluate_algorithm(URM_test=urm_validation, recommender_object=recommender, at=10, exclude_seen=exclude_seen))
 
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
-    provide_recommendations(utility.build_urm_matrix())
+    #provide_recommendations(utility.build_urm_matrix())
 
-    """
+
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
-    experiment(i=0.5, u=0.5, g=1.0, s=1.0, b=1.0, scale=True)
-    experiment(i=1.0, u=1.0, g=1.0, s=1.0, b=1.0, scale=True)
-    """
+    #print("Evaluate metrics on train set: ")
+    #experiment(i=0.5, u=0.5, g=1.0, s=1.0, b=1.0, scale=True, urm_validation=urm_train, exclude_seen=False)
+
+    #print("Evaluate metrics on test set: ")
+    #experiment(i=0.5, u=0.5, g=1.0, s=1.0, b=1.0, scale=True, urm_validation=urm_test)
+    #print("Evaluate metrics on train set: ")
+    #experiment(i=0.0, u=0.0, g=0.0, s=1.0, b=1.0, scale=True, urm_validation=urm_train, exclude_seen=False)
+    #print("Evaluate metrics on test set: ")
+    #experiment(i=0.0, u=0.0, g=0.0, s=1.0, b=1.0, scale=True, urm_validation=urm_test)
+    experiment(i=0.0, u=0.0, g=1.0, s=1.0, b=1.0, scale=True, urm_validation=urm_test)

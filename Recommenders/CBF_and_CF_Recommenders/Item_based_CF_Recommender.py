@@ -3,7 +3,6 @@ from Recommenders.Utilities.data_matrix import Data_matrix_utility
 from Recommenders.Utilities.Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
 from Recommenders.Utilities.Base.Recommender import Recommender
 
-
 """
 Here an Item-based CF recommender is implemented
 """

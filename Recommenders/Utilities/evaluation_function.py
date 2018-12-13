@@ -44,7 +44,7 @@ def MAP(is_relevant, relevant_items):
 
 
 
-def evaluate_algorithm(URM_test, recommender_object, at=5):
+def evaluate_algorithm(URM_test, recommender_object, at=5, exclude_seen=True):
 
     cumulative_precision = 0.0
     cumulative_recall = 0.0
@@ -69,7 +69,7 @@ def evaluate_algorithm(URM_test, recommender_object, at=5):
 
             relevant_items = URM_test.indices[start_pos:end_pos]
 
-            recommended_items = recommender_object.recommend(user_id, n_tracks=at)
+            recommended_items = recommender_object.recommend(user_id, n_tracks=at, exclude_seen=exclude_seen)
             num_eval+=1
 
             is_relevant = np.in1d(recommended_items, relevant_items, assume_unique=True)
