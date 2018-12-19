@@ -311,7 +311,7 @@ class AsySVD(Recommender):
 
 
 
-class IALS_numpy(Recommender):
+class IALS_numpy(object):
     '''
     binary Alternating Least Squares model (or Weighed Regularized Matrix Factorization)
     Reference: Collaborative Filtering for binary Feedback Datasets (Hu et al., 2008)
@@ -326,7 +326,7 @@ class IALS_numpy(Recommender):
     '''
 
     # TODO: Add support for multiple confidence scaling functions (e.g. linear and log scaling)
-    def __init__(self,
+    def __init__(self, urm_csr,
                  num_factors=50,
                  reg=0.015,
                  iters=10,
@@ -361,6 +361,7 @@ class IALS_numpy(Recommender):
         self.init_mean = init_mean
         self.init_std = init_std
         self.rnd_seed = rnd_seed
+        self.URM_train = urm_csr
 
     def __str__(self):
         return "WRMF-iALS(num_factors={},  reg={}, iters={}, scaling={}, alpha={}, episilon={}, init_mean={}, " \
@@ -371,6 +372,7 @@ class IALS_numpy(Recommender):
 
     def _linear_scaling(self, R):
         C = R.copy().tocsr()
+        C.data = C.data.astype(dtype='float64')
         C.data *= self.alpha
         C.data += 1.0
         return C
@@ -380,16 +382,15 @@ class IALS_numpy(Recommender):
         C.data = 1.0 + self.alpha * np.log(1.0 + C.data / self.epsilon)
         return C
 
-    def fit(self, R):
-        self.dataset = R
+    def fit(self):
         # compute the confidence matrix
         if self.scaling == 'linear':
-            C = self._linear_scaling(R)
+            C = self._linear_scaling(self.URM_train)
         else:
-            C = self._log_scaling(R)
+            C = self._log_scaling(self.URM_train)
 
         Ct = C.T.tocsr()
-        M, N = R.shape
+        M, N = self.URM_train.shape
 
         # set the seed
         np.random.seed(self.rnd_seed)
@@ -403,13 +404,13 @@ class IALS_numpy(Recommender):
             self.Y = self._lsq_solver_fast(Ct, self.Y, self.X, self.reg)
             logger.debug('Finished iter {}'.format(it + 1))
 
-    def recommend(self, user_id, cutoff=None, remove_seen_flag=True):
-        scores = np.dot(self.X[user_id], self.Y.T)
+    def recommend(self, target_id, n_tracks=None, exclude_seen=True):
+        scores = np.dot(self.X[target_id], self.Y.T)
         ranking = scores.argsort()[::-1]
         # rank items
-        if remove_seen_flag:
-            ranking = self._filter_seen(user_id, ranking)
-        return ranking[:cutoff]
+        if exclude_seen:
+            ranking = self._filter_seen(target_id, ranking)
+        return ranking[:n_tracks]
 
     def _lsq_solver(self, C, X, Y, reg):
         # precompute YtY
@@ -460,14 +461,14 @@ class IALS_numpy(Recommender):
 
 
     def _get_user_ratings(self, user_id):
-        return self.dataset[user_id]
+        return self.URM_train[user_id]
 
     def _get_item_ratings(self, item_id):
-        return self.dataset[:, item_id]
+        return self.URM_train[:, item_id]
 
 
-    def _filter_seen(self, user_id, ranking):
-        user_profile = self._get_user_ratings(user_id)
+    def _filter_seen(self, target_id, ranking):
+        user_profile = self._get_user_ratings(target_id)
         seen = user_profile.indices
         unseen_mask = np.in1d(ranking, seen, assume_unique=True, invert=True)
         return ranking[unseen_mask]

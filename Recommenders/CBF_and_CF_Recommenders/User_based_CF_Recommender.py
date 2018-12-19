@@ -39,7 +39,7 @@ class User_based_CF_recommender(SimilarityMatrixRecommender, Recommender):
 
         # Compute the scores using the model-specific function
         # Vectorize over all users in user_id_array
-        scores_batch = self.compute_score_user_based(user_id_array)
+        scores_batch = self.compute_item_score(user_id_array)
 
 
         # if self.normalize:
@@ -103,6 +103,9 @@ class User_based_CF_recommender(SimilarityMatrixRecommender, Recommender):
 
         return ranking_list
 
+    def compute_item_score(self, user_id):
+        return self.W_sparse[user_id].dot(self.URM_train).toarray()
+
 ################################################################################
 
 def provide_recommendations(urm):
@@ -126,8 +129,23 @@ if __name__ == '__main__':
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
     recommender = User_based_CF_recommender(urm_train)
-    recommender.fit(shrink=2, topK=180)
+    recommender.fit(topK=180, shrink=2)
+    print("Best user based score: ")
 
-    print(recommender.evaluateRecommendations(URM_test=urm_test))
+    for id in range(urm_train.shape[0]):
+        scores = recommender.compute_score_user_based(id)
+        print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+        print("Maximum: " + str(scores.max()))
+        print("mean: " + str(scores[np.nonzero(scores)].mean()))
+
+    print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+    """
+    topk_list = [50, 70, 100, 120, 150, 180, 200, 220, 250, 280, 300]
+    user = User_based_CF_recommender(urm_train)
+    for k in topk_list:
+        print("k=" + str(k))
+        user.fit(shrink=5, topK=k)
+        print(user.evaluateRecommendations(URM_test=urm_test, at=10))
+    """
 
 ###########################################################################################

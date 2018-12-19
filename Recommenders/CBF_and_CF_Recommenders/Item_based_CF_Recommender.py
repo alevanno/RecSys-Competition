@@ -2,6 +2,9 @@ from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_
 from Recommenders.Utilities.data_matrix import Data_matrix_utility
 from Recommenders.Utilities.Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
 from Recommenders.Utilities.Base.Recommender import Recommender
+from Recommenders.Utilities.evaluation_function import evaluate_algorithm
+from Recommenders.Utilities.data_splitter import train_test_holdout
+import numpy as np
 
 """
 Here an Item-based CF recommender is implemented
@@ -40,6 +43,38 @@ def provide_recommendations(urm):
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
-    provide_recommendations(utility.build_urm_matrix())
+    #provide_recommendations(utility.build_urm_matrix())
+    urm_complete = utility.build_urm_matrix()
+    urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
+
+
+    item_based = Item_based_CF_recommender(urm_train)
+    item_based.fit(topK=150, shrink=20)
+    #print("best item based score train")
+    #print(item_based.evaluateRecommendations(URM_test=urm_train, at=10, exclude_seen=False))
+    """
+    for id in range(urm_train.shape[0]):
+        scores = item_based.compute_item_score(id)
+        #print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+        #print("Maximum: " + str(scores.max()))
+        #print("mean: " + str(scores[np.nonzero(scores)].mean()))
+
+    #print("best item based score test")
+    print(item_based.evaluateRecommendations(URM_test=urm_test, at=10))
+    """
+    item = Item_based_CF_recommender(urm_train)
+    item.fit(topK=120, shrink=15)
+    print("item based score train")
+    print(item.evaluateRecommendations(URM_test=urm_train, at=10, exclude_seen=False))
+    print("item based score test")
+    print(item.evaluateRecommendations(URM_test=urm_test, at=10))
+    """
+    topk_list = [5, 10, 50, 70, 100, 120, 150, 170, 200, 250, 300]
+    recommender = Item_based_CF_recommender(urm_train)
+    for k in topk_list:
+        print("k=" + str(k))
+        recommender.fit(topK=k, shrink=15)
+        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+    """
 
 ###############################################################################

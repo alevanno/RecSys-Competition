@@ -163,4 +163,11 @@ if __name__ == '__main__':
     recommender = RP3betaRecommender(URM_train=urm_train)
 
     recommender.fit(topK=100, alpha=0.95, beta=0.3)
+
+    for id in range(urm_train.shape[0]):
+        scores = recommender.compute_item_score(id)
+        print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+        print("Maximum: " + str(scores.max()))
+        print("mean: " + str(scores[np.nonzero(scores)].mean()))
+
     print(recommender.evaluateRecommendations(URM_test=urm_test))

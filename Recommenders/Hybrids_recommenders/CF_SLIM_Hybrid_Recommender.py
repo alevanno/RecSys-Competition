@@ -5,10 +5,12 @@ from Recommenders.ML_recommenders.SLIM_ElasticNet.SLIMElasticNetMultiProcess imp
 from sklearn.preprocessing import StandardScaler
 import numpy as np
 from Recommenders.Utilities.data_splitter import train_test_holdout
-from Recommenders.Utilities.evaluation_function import evaluate_algorithm
+from Recommenders.Utilities.Base.Recommender import Recommender
+from Recommenders.Utilities.Base.SimilarityMatrixRecommender import SimilarityMatrixRecommender
 
-class CF_SLIM_Hybrid_Recommender(object):
+class CF_SLIM_Hybrid_Recommender(Recommender, SimilarityMatrixRecommender):
     def __init__(self, urm_csr, scale=True, i=1.0, u=1.0, s=1.0):
+        super(CF_SLIM_Hybrid_Recommender, self).__init__()
         self.urm_csr = urm_csr
         self.item_based_rec = Item_based_CF_recommender(self.urm_csr)
         #self.user_based_rec = User_based_CF_recommender(self.urm_csr)
@@ -33,7 +35,9 @@ class CF_SLIM_Hybrid_Recommender(object):
         scaler.fit(array)
         return scaler.transform(array).ravel()
 
-    def recommend(self, target_id, n_tracks=None, remove_seen_flag=True):
+    def recommend(self, user_id_array, cutoff=None, remove_seen_flag=True, remove_top_pop_flag=False,
+                  remove_CustomItems_flag=False):
+        """
         item_based_scores = np.ravel(self.item_based_rec.compute_score_item_based(target_id))
         #user_based_scores = np.ravel(self.user_based_rec.compute_score_user_based(target_id))
         slim_scores = np.ravel(self.slim_rec.compute_score_item_based(target_id))
@@ -58,6 +62,7 @@ class CF_SLIM_Hybrid_Recommender(object):
         # rank items
         ranking = scores.argsort()[::-1]
         return ranking[:n_tracks]
+        """
 
     def filter_seen(self, target_id, scores):
         start_pos = self.urm_csr.indptr[target_id] #extracts the column in which the target start

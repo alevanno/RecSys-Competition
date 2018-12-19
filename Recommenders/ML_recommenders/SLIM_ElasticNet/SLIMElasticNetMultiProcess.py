@@ -154,6 +154,12 @@ if __name__ == '__main__':
         recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value,\
                 l2_penalty=l2_value, topK=k)
 
+        for id in range(urm_train.shape[0]):
+            scores = recommender.compute_item_score(id)
+            print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+            print("Maximum: " + str(scores.max()))
+            print("mean: " + str(scores[np.nonzero(scores)].mean()))
+
         print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
         print("Ignoring users with few interactions...")
         print(recommender.evaluateRecommendations(URM_test=urm_test, at=10, filterCustomUsers=utility.user_to_neglect()))

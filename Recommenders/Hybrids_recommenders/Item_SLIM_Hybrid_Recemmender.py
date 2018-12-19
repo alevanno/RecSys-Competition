@@ -6,30 +6,25 @@ import numpy as np
 from Recommenders.Utilities.data_splitter import train_test_holdout
 from Recommenders.Utilities.evaluation_function import evaluate_algorithm
 from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython import SLIM_BPR_Cython
+from Recommenders.Utilities.Base.Recommender_utils import similarityMatrixTopK
 
 class Item_SLIM_Hybrid_Recommender(object):
-    def __init__(self, urm_csr):
+    def __init__(self, urm_csr, topK=100):
         self.urm_csr = urm_csr
         self.item_based_rec = Item_based_CF_recommender(self.urm_csr)
-        self.slim_rec = MultiThreadSLIM_ElasticNet(self.urm_csr)
         self.bpr_rec = SLIM_BPR_Cython(self.urm_csr)
+        self.topK = topK
 
-    def fit(self, i=1.0, s=1.0, b=1.0, scale=True):
+    def fit(self, i=1.0, b=1.0, scale=False):
         self.item_based_rec.fit(topK=150, shrink=20)
-        l1_value = 1e-05
-        l2_value = 0.002
-        k = 150
-        self.slim_rec.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, \
-                        l2_penalty=l2_value, topK=k)
         self.bpr_rec.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
         if scale:
             W_item_std = self.standardize_by_column(self.item_based_rec.W_sparse.tocsr())
-            W_slim_std = self.standardize_by_column(self.slim_rec.W_sparse.tocsr())
             W_bpr_std = self.standardize_by_column(self.bpr_rec.W_sparse.tocsr())
-            self.W_sparse = i * W_item_std + s * W_slim_std + b * W_bpr_std
+            self.W_sparse = i * W_item_std + b * W_bpr_std
         else:
-            self.W_sparse = i * self.item_based_rec.W_sparse.tocsr() + s * self.slim_rec.W_sparse.tocsr()\
-                                + b * self.bpr_rec.W_sparse.tocsr()
+            W = i * self.item_based_rec.W_sparse.tocsr() + b * self.bpr_rec.W_sparse.tocsr()
+            self.W_sparse = similarityMatrixTopK(W, forceSparseOutput=True, k=self.topK)
 
     def standardize_by_column(self, csr_matrix):
         csc_matrix = csr_matrix.tocsc()
@@ -85,10 +80,21 @@ if __name__ == '__main__':
 
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
+
+    item_based = Item_based_CF_recommender(urm_train)
+    item_based.fit(topK=120, shrink=15)
+    print("item based score")
+    print(item_based.evaluateRecommendations(URM_test=urm_test, at=10))
+
+    slim_bpr = SLIM_BPR_Cython(urm_train)
+    slim_bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+    print("bpr score")
+    print(slim_bpr.evaluateRecommendations(URM_test=urm_test, at=10))
+
+
+    i_list = [0.2, 0.4, 0.6, 0.8]
     recommender = Item_SLIM_Hybrid_Recommender(urm_csr=urm_train)
-    recommender.fit(scale=False)
-    print("All parameters to 1")
-    print(evaluate_algorithm(URM_test=urm_test, recommender_object=recommender, at=10))
-    recommender.fit(i=0.2, b=0.3, s=0.5, scale=False)
-    print("Convex combination")
-    print(evaluate_algorithm(URM_test=urm_test, recommender_object=recommender, at=10))
+    for i in i_list:
+        print("Parameters: i=" + str(i) + ", b=" + str(1-i))
+        recommender.fit(i=i, b=1-i)
+        print(evaluate_algorithm(URM_test=urm_test, recommender_object=recommender, at=10))

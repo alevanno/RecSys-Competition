@@ -9,29 +9,25 @@ from Recommenders.Utilities.evaluation_function import evaluate_algorithm
 from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython import SLIM_BPR_Cython
 from Recommenders.ML_recommenders.GraphBased.RP3betaRecommender import RP3betaRecommender
 from Recommenders.CBF_and_CF_Recommenders.Content_based_filtering import CBF_recommender
+from Recommenders.Hybrids_recommenders.Hybrids_for_User_wise.User_and_item_CF import User_and_item_CF
+from Recommenders.Hybrids_recommenders.SLIM__BPR_Graph_and_CF_Hybrid_Recommender import SLIM__BPR_Graph_and_CF_Hybrid_Recommender
 
-class SLIM__BPR_Graph_and_CF_Hybrid_Recommender(object):
-    def __init__(self, urm_csr, icm_csr, scale=True, i=1.0, u=1.0, s=1.0, b=1.0, g=1.0, c=1.0):
+class ML_and_not_recommender(object):
+    def __init__(self, urm_csr, icm_csr, scale=True, n=1.0, s=1.0, b=1.0, g=1.0):
         self.urm_csr = urm_csr
         self.icm_csr = icm_csr
-        self.item_based_rec = Item_based_CF_recommender(self.urm_csr)
-        self.user_based_rec = User_based_CF_recommender(self.urm_csr)
+        self.non_ml = User_and_item_CF(urm_csr=self.urm_csr, icm_csr=self.icm_csr, i=5.0, c=1.4, u=1.0, scale=False)
         self.slim_rec = MultiThreadSLIM_ElasticNet(self.urm_csr)
         self.bpr_rec = SLIM_BPR_Cython(URM_train=self.urm_csr)
         self.graph_rec = RP3betaRecommender(self.urm_csr)
-        self.cbf_rec = CBF_recommender(urm_csr=self.urm_csr, icm_csr=self.icm_csr)
         self.scale = scale
-        self.i = i
-        self.u = u
+        self.n = n
         self.s = s
         self.b = b
         self.g = g
-        self.c = c
 
     def fit(self):
-        self.item_based_rec.fit(topK=150, shrink=20)
-        self.user_based_rec.fit(topK=180, shrink=2)
-        self.cbf_rec.fit(topK=180, shrink=2)
+        self.non_ml.fit()
         l1_value = 1e-05
         l2_value = 0.002
         k = 150
@@ -47,35 +43,22 @@ class SLIM__BPR_Graph_and_CF_Hybrid_Recommender(object):
         return scaler.transform(array).ravel()
 
     def recommend(self, target_id, n_tracks=None, exclude_seen=True):
-        item_based_scores = np.ravel(self.item_based_rec.compute_item_score(target_id))
-        print("Item based size=" + str(len(item_based_scores)))
-        user_based_scores = np.ravel(self.user_based_rec.compute_score_user_based(target_id))
-        print("User based size=" + str(len(user_based_scores)))
+        non_ml_scores = self.non_ml.get_scores(target_id=target_id)
         slim_scores = np.ravel(self.slim_rec.compute_item_score(target_id))
-        print("ElasticNet size=" + str(len(slim_scores)))
         bpr_scores = np.ravel(self.bpr_rec.compute_item_score(target_id))
-        print("BPR size=" + str(len(bpr_scores)))
         graph_based_scores = np.ravel(self.graph_rec.compute_item_score(target_id))
-        cbf_scores = self.cbf_rec.get_score(target_id)
-        #print("Item based not standard: " + str(item_based_scores.mean()))
-        #print("User based not standard: " + str(user_based_scores.mean()))
-        #print("Slim not standard: " + str(slim_scores.mean()))
 
         if self.scale:
-            item_based_std_scores = self.standardize(item_based_scores)
-            user_based_std_scores = self.standardize(user_based_scores)
+            non_ml_std_scores = self.standardize(non_ml_scores)
             slim_std_scores = self.standardize(slim_scores)
             bpr_std_scores = self.standardize(bpr_scores)
             graph_based_std_scores = self.standardize(graph_based_scores)
-            cbf_std_scores = self.standardize(cbf_scores)
-            #print("Item based standard: " + str(item_based_std_scores.mean()))
-            #print("User based standard: " + str(user_based_std_scores.mean()))
-            #print("Slim standard: " + str(slim_std_scores.mean()))
-            scores = self.i * item_based_std_scores + self.u * user_based_std_scores + self.g * graph_based_std_scores \
-                     + self.s * slim_std_scores + self.b * bpr_std_scores + self.c * cbf_std_scores
+            scores = self.g * graph_based_std_scores + self.s * slim_std_scores + self.b * bpr_std_scores + \
+                        self.n * non_ml_std_scores
         else:
-            scores = self.i * item_based_scores + self.u * user_based_scores + self.g * graph_based_scores\
-                    + self.s * slim_scores + self.b * bpr_scores + self.c * cbf_scores
+            scores = self.g * graph_based_scores + self.s * slim_scores + self.b * bpr_scores + \
+                        self.n * non_ml_scores
+
 
         if exclude_seen:
             scores = self.filter_seen(target_id, scores)
@@ -97,19 +80,28 @@ def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
     targets_array = utility.get_target_list()
-    recommender = SLIM__BPR_Graph_and_CF_Hybrid_Recommender(urm_csr=urm_csr, icm_csr=icm_complete, i=1.0, u=1.0, g=0.0, s=1.0, b=1.0, c=0.0, scale=True)
+    #recommender = ML_and_not_recommender(urm_csr=urm_csr, icm_csr=icm_complete, s=50.0, b=2.0, g=0.0, n=1.0, scale=False)
+    recommender = SLIM__BPR_Graph_and_CF_Hybrid_Recommender(i=1.0, u=1.0, g=0.0, s=1.0, b=1.0, c=0.0, scale=True)
     recommender.fit()
     for target in targets_array:
         recommendations[target] = recommender.recommend(target_id=target, n_tracks=10)
 
-    with open('SLIM_and_BPR_Item_User_CF_Graph_Hybrid_scores_sum_recommendations_with_same_weights.csv', 'w') as f:
+    with open('ML_and_not_recommendations_standard_with_parameters.csv', 'w') as f:
         f.write('playlist_id,track_ids\n')
         for i in sorted(recommendations):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
-def experiment(i, u, s, b, g, c, scale, urm_validation, exclude_seen=True):
-    print("Configuration -> i=" + str(i) + ", u=" + str(u) + ", s=" + str(s) + ", b=" + str(b) + ", g=" + str(g) + ", c=" + str(c) + ", scale=" + str(scale))
+
+def old_experiment(i, u, s, b, g, c, scale, urm_validation, exclude_seen=True):
+    print("Good Configuration -> i=" + str(i) + ", u=" + str(u) + ", s=" + str(s) + ", b=" + str(b) + ", g=" + str(g) + ", c=" + str(c) + ", scale=" + str(scale))
     recommender = SLIM__BPR_Graph_and_CF_Hybrid_Recommender(urm_csr=urm_train, icm_csr=icm_complete, scale=scale, i=i, u=u, s=s, b=b, g=g)
+    recommender.fit()
+    print(evaluate_algorithm(URM_test=urm_validation, recommender_object=recommender, at=10, exclude_seen=exclude_seen))
+
+
+def new_experiment(s, b, g, n, scale, urm_validation, exclude_seen=True):
+    print("Configuration -> s=" + str(s) + ", b=" + str(b) + ", g=" + str(g) + ", n=" + str(n) + ", scale=" + str(scale))
+    recommender = ML_and_not_recommender(urm_csr=urm_train, icm_csr=icm_complete, scale=scale, s=s, b=b, g=g, n=n)
     recommender.fit()
     print(evaluate_algorithm(URM_test=urm_validation, recommender_object=recommender, at=10, exclude_seen=exclude_seen))
 
@@ -123,24 +115,23 @@ if __name__ == '__main__':
     urm_complete = utility.build_urm_matrix()
     icm_complete = utility.build_icm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
-    """
-    print("Best score: ")
-    #experiment(i=1.0, u=1.0, g=0.0, s=1.0, b=1.0, c=0.0, scale=True, urm_validation=urm_test, exclude_seen=True)
+    old_experiment(i=1.0, u=1.0, g=0.0, s=1.0, b=1.0, c=0.0, scale=True, urm_validation=urm_test, exclude_seen=True)
 
-    print("ElasticNet score:")
-    elastic = MultiThreadSLIM_ElasticNet(urm_train)
-    l1_value = 1e-05
-    l2_value = 0.002
-    k = 150
-    elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
-    print(elastic.evaluateRecommendations(URM_test=urm_test, at=10, exclude_seen=True))
     """
+    print("Attempt: ")
+    new_experiment(s=1, b=1, g=0, n=1, scale=True, urm_validation=urm_test, exclude_seen=True)
+
     #best s: s=50
     #best b: b=2
-    s_list = [0.0, 30.0, 40.0, 50.0, 60.0]
+    s_list = [50.0, 50.0, 40.0]
+    n_list = [1.0, 2.0, 2.0]
+    b_list = [2.0, 1.0, 4.0]
+    g_list = [0.0, 0.0, 0.0]
     #b_list = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0]
     #g_list = [0.0, 0.5, 1, 2, 4, 6]
 
+
     for ex in range(len(s_list)):
-        experiment(i=5.0, c=1.4, u=1.0, g=6.0, b=2.0, s=s_list[ex], scale=False, urm_validation=urm_test, \
+        new_experiment(n=n_list[ex], g=g_list[ex], b=b_list[ex], s=s_list[ex], scale=False, urm_validation=urm_test, \
                    exclude_seen=True)
+    """

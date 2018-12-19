@@ -31,9 +31,9 @@ class Hybrids_std_sum_scores(object):
         return scaler.transform(array).ravel()
 
     def recommend(self, user_id, n_tracks=None, remove_seen_flag=True):
-        item_based_scores = np.ravel(self.item_based_rec.compute_score_item_based(user_id))
+        item_based_scores = np.ravel(self.item_based_rec.compute_item_score(user_id))
         user_based_scores = np.ravel(self.user_based_rec.compute_score_user_based(user_id))
-        bpr_scores = np.ravel(self.bpr_rec.compute_score_item_based(user_id))
+        bpr_scores = np.ravel(self.bpr_rec.compute_item_score(user_id))
         item_based_std_scores = self.standardize(item_based_scores)
         user_based_std_scores = self.standardize(user_based_scores)
         bpr_std_scores = self.standardize(bpr_scores)

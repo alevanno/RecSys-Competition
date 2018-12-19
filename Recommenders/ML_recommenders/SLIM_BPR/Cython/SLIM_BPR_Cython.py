@@ -19,6 +19,7 @@ import subprocess
 import os, sys, time
 
 import numpy as np
+import scipy.sparse as sps
 from Recommenders.Utilities.Base.Evaluation.Evaluator import SequentialEvaluator
 
 
@@ -102,63 +103,69 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
 
         from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython_Epoch import SLIM_BPR_Cython_Epoch
 
-        # Select only positive interactions
-        URM_train_positive = self.URM_train.copy()
+        try:
 
-        URM_train_positive.data = URM_train_positive.data >= self.positive_threshold
-        URM_train_positive.eliminate_zeros()
+            self.W_sparse = self.loadModel()
+            self.W_sparse = self.W_sparse.tocsr()
 
-        self.sgd_mode = sgd_mode
-        self.epochs = epochs
+        except IOError:
+            # Select only positive interactions
+            URM_train_positive = self.URM_train.copy()
 
+            URM_train_positive.data = URM_train_positive.data >= self.positive_threshold
+            URM_train_positive.eliminate_zeros()
 
-        self.cythonEpoch = SLIM_BPR_Cython_Epoch(self.URM_mask,
-                                                 train_with_sparse_weights = self.train_with_sparse_weights,
-                                                 final_model_sparse_weights = self.sparse_weights,
-                                                 topK=topK,
-                                                 learning_rate=learning_rate,
-                                                 li_reg = lambda_i,
-                                                 lj_reg = lambda_j,
-                                                 batch_size=1,
-                                                 symmetric = self.symmetric,
-                                                 sgd_mode = sgd_mode,
-                                                 gamma=gamma,
-                                                 beta_1=beta_1,
-                                                 beta_2=beta_2)
+            self.sgd_mode = sgd_mode
+            self.epochs = epochs
 
 
-
-
-        if(topK != False and topK<1):
-            raise ValueError("TopK not valid. Acceptable values are either False or a positive integer value. Provided value was '{}'".format(topK))
-        self.topK = topK
-
-        if validation_every_n is not None:
-            self.validation_every_n = validation_every_n
-        else:
-            self.validation_every_n = np.inf
-
-        if evaluator_object is None and stop_on_validation:
-            evaluator_object = SequentialEvaluator(self.URM_validation, [5])
-
-
-        self.batch_size = batch_size
-        self.lambda_i = lambda_i
-        self.lambda_j = lambda_j
-        self.learning_rate = learning_rate
-
-
-        self._train_with_early_stopping(epochs, validation_every_n, stop_on_validation,
-                                    validation_metric, lower_validatons_allowed, evaluator_object,
-                                    algorithm_name = self.RECOMMENDER_NAME)
+            self.cythonEpoch = SLIM_BPR_Cython_Epoch(self.URM_mask,
+                                                     train_with_sparse_weights = self.train_with_sparse_weights,
+                                                     final_model_sparse_weights = self.sparse_weights,
+                                                     topK=topK,
+                                                     learning_rate=learning_rate,
+                                                     li_reg = lambda_i,
+                                                     lj_reg = lambda_j,
+                                                     batch_size=1,
+                                                     symmetric = self.symmetric,
+                                                     sgd_mode = sgd_mode,
+                                                     gamma=gamma,
+                                                     beta_1=beta_1,
+                                                     beta_2=beta_2)
 
 
 
 
+            if(topK != False and topK<1):
+                raise ValueError("TopK not valid. Acceptable values are either False or a positive integer value. Provided value was '{}'".format(topK))
+            self.topK = topK
 
-        self.get_S_incremental_and_set_W()
+            if validation_every_n is not None:
+                self.validation_every_n = validation_every_n
+            else:
+                self.validation_every_n = np.inf
 
-        sys.stdout.flush()
+            if evaluator_object is None and stop_on_validation:
+                evaluator_object = SequentialEvaluator(self.URM_validation, [5])
+
+
+            self.batch_size = batch_size
+            self.lambda_i = lambda_i
+            self.lambda_j = lambda_j
+            self.learning_rate = learning_rate
+
+
+            self._train_with_early_stopping(epochs, validation_every_n, stop_on_validation,
+                                        validation_metric, lower_validatons_allowed, evaluator_object,
+                                        algorithm_name = self.RECOMMENDER_NAME)
+
+
+
+
+
+            self.get_S_incremental_and_set_W()
+
+            sys.stdout.flush()
 
 
 
@@ -192,6 +199,7 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
                 self.W_sparse = similarityMatrixTopK(self.S_incremental, k = self.topK)
                 print(self.W_sparse.mean())
                 print(self.W_sparse.shape)
+                self.saveModel()
             else:
                 self.W = self.S_incremental
 
@@ -218,7 +226,11 @@ class SLIM_BPR_Cython(SimilarityMatrixRecommender, Recommender, Incremental_Trai
             # logFile.write("Weights: {}\n".format(str(list(self.weights))))
             logFile.flush()
 
+    def saveModel(self, file_name='SLIM_BPR.npz'):
+        sps.save_npz(file=file_name, matrix=self.W_sparse)
 
+    def loadModel(self, file_name='SLIM_BPR.npz'):
+        return sps.load_npz(file=file_name)
 
 
 
@@ -274,4 +286,10 @@ if __name__ == '__main__':
 
     recommender.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01, stop_on_validation=True,\
                     validation_every_n=50)
+    for id in range(urm_train.shape[0]):
+        scores = recommender.compute_item_score(id)
+        print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+        print("Maximum: " + str(scores.max()))
+        print("mean: " + str(scores[np.nonzero(scores)].mean()))
+
     print(recommender.evaluateRecommendations(URM_test=urm_validation, at=10, filterCustomUsers=utility.user_to_neglect()))

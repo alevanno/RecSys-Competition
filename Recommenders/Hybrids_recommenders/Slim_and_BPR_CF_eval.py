@@ -40,8 +40,8 @@ class CF_SLIM_Hybrid_Recommender(object):
     def recommend(self, target_id, n_tracks=None, exclude_seen=True):
         item_based_scores = self.item_based_rec.recommend(target_id)
         user_based_scores = self.user_based_rec.recommend(target_id)
-        slim_scores = np.ravel(self.slim_rec.compute_score_item_based(target_id))
-        bpr_scores = np.ravel(self.bpr_rec.compute_score_item_based(target_id))
+        slim_scores = np.ravel(self.slim_rec.compute_item_score(target_id))
+        bpr_scores = np.ravel(self.bpr_rec.compute_item_score(target_id))
         #print("Item based not standard: " + str(item_based_scores.mean()))
         #print("User based not standard: " + str(user_based_scores.mean()))
         #print("Slim not standard: " + str(slim_scores.mean()))
