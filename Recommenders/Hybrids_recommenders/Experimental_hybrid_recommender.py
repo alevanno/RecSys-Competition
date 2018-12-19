@@ -2,7 +2,6 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from Recommenders.Utilities.evaluation_function import evaluate_algorithm
 from Recommenders.Utilities.data_splitter import train_test_holdout
-import matplotlib.pyplot as pyplot
 from Recommenders.Utilities.data_matrix import Data_matrix_utility
 from Recommenders.Utilities.Compute_Similarity_Python import Compute_Similarity_Python
 from Recommenders.CBF_and_CF_Recommenders.Item_based_CF_Recommender import Item_based_CF_recommender
