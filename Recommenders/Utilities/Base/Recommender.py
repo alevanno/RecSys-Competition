@@ -71,10 +71,10 @@ class Recommender(object):
 
 
 
-
+    """
     def compute_item_score(self, user_id):
         raise NotImplementedError("Recommender: compute_item_score not assigned for current recommender, unable to compute prediction scores")
-
+    """
 
 
 

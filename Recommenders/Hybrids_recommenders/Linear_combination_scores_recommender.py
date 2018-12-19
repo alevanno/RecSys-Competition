@@ -44,6 +44,19 @@ class Linear_combination_scores_recommender(Recommender):
         scores[seen] = -np.inf
         return scores
 
+####################################################################################################################
+def provide_recommendations():
+    recommendations = {}
+    targets_array = utility.get_target_list()
+
+    for target in targets_array:
+        recommendations[target] = recommender.recommend(user_id_array=target, cutoff=10)
+
+    with open('Linear_combination.csv', 'w') as f:
+        f.write('playlist_id,track_ids\n')
+        for i in sorted(recommendations):
+            f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
+
 if __name__ == '__main__':
     utility = Data_matrix_utility()
     urm_complete = utility.build_urm_matrix()
@@ -75,6 +88,8 @@ if __name__ == '__main__':
     rec_dictionary[elasticNet] = 50.0
     rec_dictionary[bpr] = 2.0
 
+    recommender = Linear_combination_scores_recommender(urm_csr=urm_complete.tocsr(), rec_dictionary=rec_dictionary)
+    provide_recommendations()
 
-    recommender = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=rec_dictionary)
-    print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+    #recommender = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=rec_dictionary)
+    #print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
