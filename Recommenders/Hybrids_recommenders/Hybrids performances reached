@@ -1,0 +1,13 @@
+RESULTS
+
+Linear_combination_scores_recommender
+---------------------------------------
+dictionary-> bpr=1.2  ; content based filtering=1.0 => MAP locale = 0.117153
+
+dictionary-> elasticnet=20 ; content based filtering=1.0 => MAP locale = 0.120716
+
+dictionary -> elastic_cbf=1.0; bpr_cbf=1.0 => MAP public leaderboard = 0.09228
+where elastic_cbf dictionary -> elasticNet=20.0; content based filtering = 1.0
+      bpr_cbf -> bpr=1.2; cbf=1.0
+
+dictionary -> elastic=50.0; bpr=4.5; cbf=6.5; graph=10.0 => MAP public leaderboard = 0.09254

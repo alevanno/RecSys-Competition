@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-@author: Cesare Bernardis
-"""
-
 import numpy as np
 import scipy.sparse as sps
 
@@ -19,20 +13,38 @@ import time, sys
 
 
 
-class P3alphaRecommender(SimilarityMatrixRecommender, Recommender):
+class Content_P3alphaRecommender(SimilarityMatrixRecommender, Recommender):
     """ P3alpha recommender """
 
-    RECOMMENDER_NAME = "P3alphaRecommender"
+    RECOMMENDER_NAME = "Content_P3alphaRecommender"
 
-    def __init__(self, URM_train):
-        super(P3alphaRecommender, self).__init__()
+    """
+    VERSIONS:
+    - 'user' -> Final matrix is computed as Pui * Piu * Pui
+    - 'content' -> Final matrix is computed as Pui * Pia * Pai
+    - 'content-user' -> Final matrix is computed as Pui * Pia * Pai * Piu * Pui
+    - 'user-content' -> Final matrix is computed as Pui * Piu * Pui * Pia * Pai
+    - 'content-user-content' -> Final matrix is computed as Pui * Pia * Pai * Piu * Pui * Pia * Pai
+    
+    
+    
+    """
 
+    def __init__(self, URM_train, ICM, version='user'):
+        super(Content_P3alphaRecommender, self).__init__()
+
+        print("Version: " + version)
         self.URM_train = check_matrix(URM_train, format='csr', dtype=np.float32)
+        self.ICM = ICM
         self.sparse_weights = True
+        self.version = version
+        if self.version != 'user' and self.version != 'content' and self.version != 'content-user' \
+            and self.version != 'user-content' and self.version != 'content-user-content':
+            print("ERROR")
 
 
     def __str__(self):
-        return "P3alpha(alpha={}, min_rating={}, topk={}, implicit={}, normalize_similarity={})".format(self.alpha,
+        return "Content_P3alpha(alpha={}, min_rating={}, topk={}, implicit={}, normalize_similarity={})".format(self.alpha,
                                                                             self.min_rating, self.topK, self.implicit,
                                                                             self.normalize_similarity)
 
@@ -65,15 +77,27 @@ class P3alphaRecommender(SimilarityMatrixRecommender, Recommender):
         Piu = normalize(X_bool, norm='l1', axis=1)
         del(X_bool)
 
+        Pia = normalize(self.ICM, norm='l1', axis=1)
+        X_bool = self.ICM.transpose(copy=True)
+        X_bool.data = np.ones(X_bool.data.size, np.float32)
+        Pai = normalize(X_bool, norm='l1', axis=1)
+        del(X_bool)
+
         # Alfa power
         if self.alpha != 1.:
             Pui = Pui.power(self.alpha)
             Piu = Piu.power(self.alpha)
+            Pia = Pia.power(self.alpha)
+            Pai = Pai.power(self.alpha)
 
-        # Final matrix is computed as Pui * Piu * Pui
+        # Final matrix is computed as Pui * Pia * Pai
         # Multiplication unpacked for memory usage reasons
         block_dim = 200
-        d_t = Piu
+
+        if self.version == 'user' or self.version == 'user-content':
+            d_t = Piu
+        else:
+            d_t = Pia
 
         # Use array as it reduces memory requirements compared to lists
         dataBlock = 10000000
@@ -93,7 +117,18 @@ class P3alphaRecommender(SimilarityMatrixRecommender, Recommender):
             if current_block_start_row + block_dim > Pui.shape[1]:
                 block_dim = Pui.shape[1] - current_block_start_row
 
-            similarity_block = d_t[current_block_start_row:current_block_start_row + block_dim, :] * Pui
+            if self.version == 'user':
+                similarity_block = d_t[current_block_start_row:current_block_start_row + block_dim, :] * Pui
+            elif self.version == 'content':
+                similarity_block = d_t[current_block_start_row:current_block_start_row + block_dim, :] * Pai
+            elif self.version == 'content-user':
+                similarity_block = d_t[current_block_start_row:current_block_start_row + block_dim, :] * Pai * Piu * Pui
+            elif self.version == 'user-content':
+                similarity_block = d_t[current_block_start_row:current_block_start_row + block_dim, :] * Pui * Pia * Pai
+            else:
+                similarity_block = d_t[current_block_start_row:current_block_start_row + block_dim, :] * Pai * Piu * Pui * Pia * Pai
+
+
             similarity_block = similarity_block.toarray()
 
             for row_in_block in range(block_dim):
@@ -150,10 +185,15 @@ if __name__ == '__main__':
     #provide_recommendations(utility.build_urm_matrix())
 
     urm_complete = utility.build_urm_matrix()
+    icm = utility.build_icm_matrix().tocsr()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
-    recommender = P3alphaRecommender(URM_train=urm_train)
+    content_graph_recommender = Content_P3alphaRecommender(URM_train=urm_train, ICM=icm, version='user')
+    content_graph_recommender.fit(topK=250, alpha=0.95)
+    print(content_graph_recommender.evaluateRecommendations(URM_test=urm_test))
+
+    content_graph_recommender = Content_P3alphaRecommender(URM_train=urm_train, ICM=icm, version='content-user')
     topk_list = [250]
-    for k in topk_list:
-        print("k=" + str(k))
-        recommender.fit(topK=k, alpha=0.95)
-        print(recommender.evaluateRecommendations(URM_test=urm_test))
+    for topk in topk_list:
+        print("topk=" + str(topk))
+        content_graph_recommender.fit(topK=topk, alpha=0.8)
+        print(content_graph_recommender.evaluateRecommendations(URM_test=urm_test))
