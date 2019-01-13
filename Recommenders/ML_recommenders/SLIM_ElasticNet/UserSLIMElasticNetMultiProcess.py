@@ -8,6 +8,7 @@ from Recommenders.Utilities.data_splitter import train_test_holdout
 from Recommenders.Utilities.data_matrix import Data_matrix_utility
 import scipy.sparse as sps
 from sklearn.linear_model import ElasticNet
+from Recommenders.CBF_and_CF_Recommenders.User_based_CF_Recommender import User_based_CF_recommender
 
 from Recommenders.Utilities.Base.Recommender_utils import check_matrix
 
@@ -115,7 +116,7 @@ class UserSLIMElasticNetMultiProcess(SLIMElasticNetRecommender, SimilarityMatrix
 
         # Compute the scores using the model-specific function
         # Vectorize over all users in user_id_array
-        scores_batch = self.compute_score_user_based(user_id_array)
+        scores_batch = self.compute_item_score(user_id_array)
 
 
         # if self.normalize:
@@ -179,6 +180,9 @@ class UserSLIMElasticNetMultiProcess(SLIMElasticNetRecommender, SimilarityMatrix
 
         return ranking_list
 
+    def compute_item_score(self, user_id):
+        return self.W_sparse[user_id].dot(self.URM_train).toarray()
+
 
 ############################################################################################################
 
@@ -207,7 +211,13 @@ if __name__ == '__main__':
 
     urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
-    l1_value_list = [1e-06, 1e-07, 1e-08, 1e-09]
+
+    user = User_based_CF_recommender(urm_train)
+    user.fit(topK=180, shrink=2)
+    print("user based score:")
+    print(user.evaluateRecommendations(URM_test=urm_test, at=10))
+
+    l1_value_list = [1e-04, 1e-05, 1e-06, 1e-07, 1e-08, 1e-09]
     l2_value = 0.002
     recommender = UserSLIMElasticNetMultiProcess(urm_train.tocsr())
     print(recommender.URM_train.getformat())

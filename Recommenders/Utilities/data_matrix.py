@@ -3,9 +3,9 @@ from pathlib import Path
 import pandas as pd
 from scipy.sparse import coo_matrix
 
-train_path = Path("../../data")/"train.csv"
-target_path = Path("../../data")/"target_playlists.csv"
-tracks_path = Path("../../data")/"tracks.csv"
+train_path = Path("/home/andrea/Scrivania/RS competition/RecSys-Competition/data")/"train.csv"
+target_path = Path("/home/andrea/Scrivania/RS competition/RecSys-Competition/data")/"target_playlists.csv"
+tracks_path = Path("/home/andrea/Scrivania/RS competition/RecSys-Competition/data")/"tracks.csv"
 
 class Data_matrix_utility(object):
 
@@ -68,6 +68,14 @@ class Data_matrix_utility(object):
         print("Neglected " + str(len(user_to_neglect)) + " users")
         return user_to_neglect
 
+    def get_train_dataframe(self):
+        return pd.read_csv(train_path)
+
+    def get_target_dataframe(self):
+        return pd.read_csv(target_path)
+
+    def get_tracks_dataframe(self):
+        return pd.read_csv(tracks_path)
     """
     def item_to_neglect(self):
         data = pd.read_csv(train_path)

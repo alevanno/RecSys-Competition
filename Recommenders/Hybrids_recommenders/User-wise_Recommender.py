@@ -7,50 +7,46 @@ from Recommenders.ML_recommenders.SLIM_ElasticNet.SLIMElasticNetMultiProcess imp
 from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython import SLIM_BPR_Cython
 from Recommenders.CBF_and_CF_Recommenders.Item_based_CF_Recommender import Item_based_CF_recommender
 from Recommenders.CBF_and_CF_Recommenders.User_based_CF_Recommender import User_based_CF_recommender
-from Recommenders.Hybrids_recommenders.Hybrids_for_User_wise.ElasticNet_and_BPR_Recommender import ElasticNet_and_BPR_recommender
-from Recommenders.Hybrids_recommenders.Hybrids_for_User_wise.ElasticNet_BPR_and_Graph import ElasticNet_BPR_and_Graph
-from Recommenders.Hybrids_recommenders.Hybrids_for_User_wise.ElasticNet_and_BPR_Recommender import ElasticNet_and_BPR_recommender
-from Recommenders.Hybrids_recommenders.Hybrids_for_User_wise.ElasticNet_and_Graph import ElasticNet_and_Graph
+from Recommenders.Hybrids_recommenders.Linear_combination_scores_recommender import Linear_combination_scores_recommender
 from Recommenders.ML_recommenders.SLIM_ElasticNet.SLIMElasticNetMultiProcess import MultiThreadSLIM_ElasticNet
+from Recommenders.CBF_and_CF_Recommenders.Content_based_filtering import CBF_recommender
 
 import numpy as np
 import matplotlib.pyplot as pyplot
 
 class User_wise_Recommender(object):
-    def __init__(self, urm_csr, group_dict):
+    def __init__(self, urm_csr, icm, group_dict):
         self.group_dict = group_dict
-        self.bpr_rec = SLIM_BPR_Cython(urm_csr)
-        self.ebg_rec = ElasticNet_BPR_and_Graph(urm_csr)
-        self.eb_rec = ElasticNet_and_BPR_recommender(urm_csr)
-        self.eg_rec = ElasticNet_and_Graph(urm_csr)
-        self.slim_rec = MultiThreadSLIM_ElasticNet(urm_csr)
+        self.URM_train = urm_csr
+        self.ICM = icm
 
     def fit(self):
+        cbf_elastic_dict = {}
+        elastic = MultiThreadSLIM_ElasticNet(self.URM_train)
         l1_value = 1e-05
         l2_value = 0.002
         k = 150
-        self.slim_rec.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
-        self.bpr_rec.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
-        self.ebg_rec.fit()
-        self.eb_rec.fit()
-        self.eg_rec.fit()
+        elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+        cbf = CBF_recommender(urm_csr=self.URM_train, icm_csr=self.ICM)
+        cbf.fit(topK=100, shrink=3)
+        cbf_elastic_dict[elastic] = 20.0
+        cbf_elastic_dict[cbf] = 1.0
+        self.cbf_elastic_rec = Linear_combination_scores_recommender(urm_csr=self.URM_train, rec_dictionary=cbf_elastic_dict)
 
-    def recommend(self, target_id, n_tracks=None, exclude_seen=True):
+        cbf_bpr_dict = {}
+        bpr = SLIM_BPR_Cython(self.URM_train)
+        bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+        cbf_bpr_dict[bpr] = 1.2
+        cbf_bpr_dict[cbf] = 1.0
+        self.cbf_bpr_rec = Linear_combination_scores_recommender(urm_csr=self.URM_train, rec_dictionary=cbf_bpr_dict)
+
+
+    def recommend(self, target_id, n_tracks=None):
         user_group = self.get_user_group(target_id)
-        if user_group == 0:
-            return self.bpr_rec.recommend(user_id_array=target_id, cutoff=n_tracks, remove_seen_flag=exclude_seen)
-        elif 1 <= user_group <= 2:
-            return self.eb_rec.recommend(target_id=target_id, n_tracks=n_tracks, exclude_seen=exclude_seen)
-        elif 3 <= user_group <= 4:
-            return self.ebg_rec.recommend(target_id=target_id, n_tracks=n_tracks, exclude_seen=exclude_seen)
-        elif user_group == 5:
-            return self.eg_rec.recommend(target_id=target_id, n_tracks=n_tracks,exclude_seen=exclude_seen)
-        elif user_group == 6:
-            return self.slim_rec.recommend(user_id_array=target_id, cutoff=n_tracks, remove_seen_flag=exclude_seen)
-        elif user_group == 7:
-            return self.eg_rec.recommend(target_id=target_id, n_tracks=n_tracks, exclude_seen=exclude_seen)
+        if user_group <= 4:
+            return self.cbf_bpr_rec.recommend(user_id_array=target_id, cutoff=n_tracks)
         else:
-            return self.slim_rec.recommend(user_id_array=target_id, cutoff=n_tracks, remove_seen_flag=exclude_seen)
+            return self.cbf_elastic_rec.recommend(user_id_array=target_id, cutoff=n_tracks)
 
     def get_user_group(self, user_id):
         for group_id in range(len(self.group_dict)):
@@ -64,12 +60,12 @@ def provide_recommendations(urm):
     recommendations = {}
     urm_csr = urm.tocsr()
     targets_array = utility.get_target_list()
-    recommender = User_wise_Recommender(urm_csr=urm_csr, group_dict=group_formation(urm_csr))
+    recommender = User_wise_Recommender(urm_csr=urm_csr, group_dict=group_formation(urm_csr), icm=icm_complete)
     recommender.fit()
     for target in targets_array:
-        recommendations[target] = recommender.recommend(target_id=target, n_tracks=10, exclude_seen=True)
+        recommendations[target] = recommender.recommend(target_id=target, n_tracks=10)
 
-    with open('User-wise_recommendations.csv',
+    with open('User-wise_recommendations_cbf_elasticnet_and_cbf_bpr.csv',
               'w') as f:
         f.write('playlist_id,track_ids\n')
         for i in sorted(recommendations):
@@ -92,39 +88,37 @@ def group_formation(urm_train):
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
-    provide_recommendations(utility.build_urm_matrix())
+    icm_complete = utility.build_icm_matrix().tocsr()
+    provide_recommendations(utility.build_urm_matrix().tocsr())
 
     """
-    urm_complete = utility.build_urm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
 
-    item_based_rec = Item_based_CF_recommender(urm_train)
-    item_based_rec.fit(topK=120, shrink=15)
-
-    user_based_rec = User_based_CF_recommender(urm_train)
-    user_based_rec.fit(topK=180, shrink=2)
-
-    slim_rec = MultiThreadSLIM_ElasticNet(urm_train)
+    cbf_elastic_dict = {}
+    elastic = MultiThreadSLIM_ElasticNet(urm_train)
     l1_value = 1e-05
     l2_value = 0.002
     k = 150
-    slim_rec.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+    elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+    cbf = CBF_recommender(urm_csr=urm_train, icm_csr=icm_complete)
+    cbf.fit(topK=100, shrink=3)
+    cbf_elastic_dict[elastic] = 20.0
+    cbf_elastic_dict[cbf] = 1.0
+    cbf_elastic_rec = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=cbf_elastic_dict)
 
-    bpr_rec = SLIM_BPR_Cython(urm_train)
-    bpr_rec.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
-
-    graph_rec = RP3betaRecommender(urm_train)
-    graph_rec.fit(topK=100, alpha=0.95, beta=0.3)
+    cbf_bpr_dict = {}
+    bpr = SLIM_BPR_Cython(urm_train)
+    bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+    cbf_bpr_dict[bpr] = 1.2
+    cbf_bpr_dict[cbf] = 1.0
+    cbf_bpr_rec = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=cbf_bpr_dict)
 
     profile_length = np.ediff1d(urm_train.indptr)
     block_size = int(len(profile_length) * 0.10)
     sorted_users = np.argsort(profile_length)
 
-    MAP_item_per_group = []
-    MAP_user_per_group = []
-    MAP_slim_per_group = []
-    MAP_bpr_per_group = []
-    MAP_graph_per_group = []
+    MAP_cbf_elastic_per_group = []
+    MAP_cbf_bpr_per_group = []
     cutoff = 10
 
     for group_id in range(0, 10):
@@ -145,30 +139,16 @@ if __name__ == '__main__':
 
         evaluator_test = SequentialEvaluator(urm_test, cutoff_list=[cutoff], ignore_users=users_not_in_group)
 
-        results, _ = evaluator_test.evaluateRecommender(item_based_rec)
-        MAP_item_per_group.append(results[cutoff]["MAP"])
+        results, _ = evaluator_test.evaluateRecommender(cbf_elastic_rec)
+        MAP_cbf_elastic_per_group.append(results[cutoff]["MAP"])
 
-        results, _ = evaluator_test.evaluateRecommender(user_based_rec)
-        MAP_user_per_group.append(results[cutoff]["MAP"])
+        results, _ = evaluator_test.evaluateRecommender(cbf_bpr_rec)
+        MAP_cbf_bpr_per_group.append(results[cutoff]["MAP"])
 
-        results, _ = evaluator_test.evaluateRecommender(slim_rec)
-        MAP_slim_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(bpr_rec)
-        MAP_bpr_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(graph_rec)
-        MAP_graph_per_group.append(results[cutoff]["MAP"])
-
-    pyplot.plot(MAP_item_per_group, label="item")
-    pyplot.plot(MAP_user_per_group, label="user")
-    pyplot.plot(MAP_slim_per_group, label="slim")
-    pyplot.plot(MAP_bpr_per_group, label="bpr")
-    pyplot.plot(MAP_graph_per_group, label="graph")
+    pyplot.plot(MAP_cbf_bpr_per_group, label="cbf_bpr")
+    pyplot.plot(MAP_cbf_elastic_per_group, label="cbf_elastic")
     pyplot.ylabel('MAP')
     pyplot.xlabel('User Group')
     pyplot.legend()
     pyplot.show()
     """
-
-
