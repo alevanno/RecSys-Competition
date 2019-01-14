@@ -166,8 +166,7 @@ def runParameterSearch_Content(recommender_class, URM_train, ICM_object, ICM_nam
 
 def runParameterSearch_Collaborative(recommender_class, URM_train, metric_to_optimize = "PRECISION",
                                      evaluator_validation = None, evaluator_test = None, evaluator_validation_earlystopping = None,
-                                     output_folder_path ="result_experiments/", parallelizeKNN = False, n_cases = 30):
-#TODO paralelizeKNN was True
+                                     output_folder_path ="result_experiments/", parallelizeKNN = True, n_cases = 30):
 
     from Recommenders.ParameterTuning.AbstractClassSearch import DictionaryKeys
 
@@ -218,7 +217,7 @@ def runParameterSearch_Collaborative(recommender_class, URM_train, metric_to_opt
 
         if recommender_class is User_based_CF_recommender:
 
-            similarity_type_list = ['cosine', 'jaccard', "asymmetric", "dice", "tversky"]
+            similarity_type_list = ['cosine']
 
             run_KNNCFRecommender_on_similarity_type_partial = partial(run_KNNCFRecommender_on_similarity_type,
                                                            parameterSearch = parameterSearch,
@@ -248,7 +247,7 @@ def runParameterSearch_Collaborative(recommender_class, URM_train, metric_to_opt
 
         if recommender_class is Item_based_CF_recommender:
 
-            similarity_type_list = ['cosine', 'jaccard', "asymmetric", "dice", "tversky"]
+            similarity_type_list = ['cosine']
 
             run_KNNCFRecommender_on_similarity_type_partial = partial(run_KNNCFRecommender_on_similarity_type,
                                                            parameterSearch = parameterSearch,
@@ -461,7 +460,8 @@ def read_data_split_and_search():
     utility = Data_matrix_utility()
     urm_complete = utility.build_urm_matrix()
     icm_complete = utility.build_icm_matrix()
-    URM_train, URM_test = train_test_holdout(URM_all=urm_complete)
+    URM_train_validation, URM_test = train_test_holdout(URM_all=urm_complete)
+    URM_train, URM_validation = train_test_holdout(URM_all=URM_train_validation)
 
 
     #URM_validation = dataReader.get_URM_validation()
