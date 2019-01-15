@@ -286,10 +286,13 @@ if __name__ == '__main__':
 
     recommender.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01, stop_on_validation=True,\
                     validation_every_n=50)
+    """
     for id in range(urm_train.shape[0]):
         scores = recommender.compute_item_score(id)
         print("Minimum: " + str(scores[np.nonzero(scores)].min()))
         print("Maximum: " + str(scores.max()))
         print("mean: " + str(scores[np.nonzero(scores)].mean()))
+    """
+    print("best so far")
+    print(recommender.evaluateRecommendations(URM_test=urm_validation, at=10))
 
-    print(recommender.evaluateRecommendations(URM_test=urm_validation, at=10, filterCustomUsers=utility.user_to_neglect()))

@@ -7,6 +7,7 @@ from Recommenders.ML_recommenders.GraphBased.RP3betaRecommender import RP3betaRe
 from Recommenders.ML_recommenders.SLIM_ElasticNet.SLIMElasticNetMultiProcess import MultiThreadSLIM_ElasticNet
 from Recommenders.ML_recommenders.SLIM_BPR.Cython.SLIM_BPR_Cython import SLIM_BPR_Cython
 from Recommenders.Utilities.Base.Evaluation.Evaluator import SequentialEvaluator
+from Recommenders.Utilities.Base.IR_feature_weighting import okapi_BM_25, TF_IDF
 
 import pandas as pd
 import numpy as np
@@ -14,7 +15,7 @@ import scipy as sps
 import xgboost as xgb
 import random
 
-class XGBoost_Recommender(object):
+class XGBoost_Classification_Recommender(object):
 
     def __init__(self, recommender, urm_csr, icm_csr):
         self.recommender_to_rerank = recommender #recommender must be already fitted
@@ -50,6 +51,12 @@ class XGBoost_Recommender(object):
 
     def add_icm_features(self, df):
 
+        icm_weighted = TF_IDF(self.ICM).tocsc()
+        for column in range(icm_weighted.shape[1]):
+            feature = icm_weighted[:, column]
+            df[column] = pd.Series(data=feature, index=df.index)
+        return df
+        """
         tracks_df = utility.get_tracks_dataframe()
         max_album_id = tracks_df.sort_values(by=['album_id'], ascending=False)['album_id'].iloc[0]
 
@@ -73,6 +80,7 @@ class XGBoost_Recommender(object):
         for artist in df.artist.unique():
             df[artist] = (df.artist == artist).astype(int)
         return df.drop(columns=['artist'])
+        """
 
     def build_df(self, urm):
         urm = urm.tocoo()
@@ -115,8 +123,6 @@ class XGBoost_Recommender(object):
         label_list = np.ones((len(playlist_list,))).tolist()
         users_list = self.df_with_no_features['playlist_id'].drop_duplicates().tolist()
         negative_samples = self.compute_negative_samples(users_list)
-        print(negative_samples)
-        print("I'm here")
 
         for index in range(len(users_list)):
             playlist_list.extend([users_list[index]] * len(negative_samples[index]))
@@ -197,8 +203,18 @@ class XGBoost_Recommender(object):
         return self.recommend_function(user_id_array=user_id_array, intermediate_cutoff=20, final_cutoff=cutoff)
 
     def compute_negative_samples(self, user_id_array):
+        negative_sample_per_user = 20
         batch = 1000
         current_position = 0
+        negative_samples = []
+        for user in user_id_array:
+            negative_list_of_user = []
+            for item in range(self.URM_train.shape[1]):
+                if self.URM_train[user, item] == 0:
+                    negative_list_of_user.append(item)
+            negative_samples.append(list(negative_list_of_user))
+
+        """
         negative_samples = []
         while current_position < len(user_id_array):
             if current_position + batch <= len(user_id_array):
@@ -216,16 +232,17 @@ class XGBoost_Recommender(object):
                 for i in range(len(score_list)):
                     if score_list[i] == minimum_score:
                         negative_list_of_user.append(i)
-
-                if len(negative_list_of_user) > 15:
+                
+                if len(negative_list_of_user) > negative_sample_per_user:
                     temp_list = []
                     random.seed(3)
-                    for iteration in range(15):
-                        index = random.randint(0, len(negative_list_of_user))
+                    for iteration in range(negative_sample_per_user):
+                        index = random.randint(0, len(negative_list_of_user)-1)
                         temp_list.append(negative_list_of_user[index])
                     negative_list_of_user = set(temp_list)
 
                 negative_samples.append(list(negative_list_of_user))
+        """
         return negative_samples
 
 
@@ -240,12 +257,51 @@ def user_to_compute_for_score(URM_test):
     usersToEvaluate = np.arange(n_users)[usersToEvaluate_mask]
     return usersToEvaluate
 
+def provide_recommendations():
+    elastic = MultiThreadSLIM_ElasticNet(urm_csr)
+    l1_value = 1e-05
+    l2_value = 0.002
+    k = 150
+    elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+
+    bpr = SLIM_BPR_Cython(urm_csr)
+    bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+
+    cbf = CBF_recommender(urm_csr=urm_csr, icm_csr=icm_csr)
+    cbf.fit(topK=100, shrink=3)
+
+    graph = RP3betaRecommender(urm_csr)
+    graph.fit(topK=100, alpha=0.95, beta=0.3)
+
+    rec_dictionary = {}
+    rec_dictionary[elastic] = 50.0
+    rec_dictionary[bpr] = 4.5
+    rec_dictionary[cbf] = 6.5
+    rec_dictionary[graph] = 10.0
+
+    recommender_to_rerank = Linear_combination_scores_recommender(urm_csr=urm_csr, rec_dictionary=rec_dictionary)
+    recommender = XGBoost_Classification_Recommender(urm_csr=urm_csr, icm_csr=icm_csr, recommender=recommender_to_rerank)
+    recommender.fit(num_round=10, eta=0.01, max_depth=10)
+
+    recommendations = {}
+    targets_array = utility.get_target_list()
+
+    for target in targets_array:
+        items_recommended = recommender.recommend(user_id_array=[target], cutoff=10)
+        recommendations[target] = [item for sublist in items_recommended for item in sublist]
+
+    with open('Reranking_with_XGBoost_classification.csv', 'w') as f:
+        f.write('playlist_id,track_ids\n')
+        for i in sorted(recommendations):
+            f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
     urm_csr = utility.build_urm_matrix().tocsr()
     icm_csr = utility.build_icm_matrix().tocsr()
 
+    provide_recommendations()
+    """
     urm_train, urm_test = train_test_holdout(URM_all=urm_csr)
 
     elastic = MultiThreadSLIM_ElasticNet(urm_train)
@@ -280,7 +336,7 @@ if __name__ == '__main__':
     results, _ = evaluator.evaluateRecommender(recommender)
     print("Algorithm with rerank: \n" + str(results[10]))
 
-    """
+
     depth_list = [1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 25, 30, 50, 100]
     for depth in depth_list:
         print("depth=" + str(depth))

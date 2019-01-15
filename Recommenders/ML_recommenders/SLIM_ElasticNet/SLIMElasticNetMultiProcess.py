@@ -144,11 +144,24 @@ if __name__ == '__main__':
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
     print("Train: " + str(urm_train.shape))
     print("Test: " + str(urm_test.shape))
-    topK_array = [150]
+    """
+    topK = 150
     l1_value = 1e-05
     l2_value = 0.002
     recommender = MultiThreadSLIM_ElasticNet(urm_train)
-    print(recommender.URM_train.getformat())
+    recommender.fit(alpha=l1_value + l2_value, l1_penalty=l1_value,
+                    l2_penalty=l2_value, topK=topK)
+    print("Best so far")
+    print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+    """
+
+    alternative_rec = MultiThreadSLIM_ElasticNet(urm_train)
+    alternative_rec.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
+                        l2_penalty=0.011673969837199876, topK=200)
+    print("Alternative")
+    print(alternative_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+    """
     for k in topK_array:
         print("k=" + str(k))
         recommender.fit(alpha=l1_value+l2_value, l1_penalty=l1_value,\
@@ -165,3 +178,4 @@ if __name__ == '__main__':
         print(recommender.evaluateRecommendations(URM_test=urm_test, at=10, filterCustomUsers=utility.user_to_neglect()))
         print("Ignoring users with large interaction")
         print(recommender.evaluateRecommendations(URM_test=urm_test, at=10, filterCustomUsers=utility.user_to_neglect(intensity_interaction='large')))
+    """

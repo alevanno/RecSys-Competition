@@ -13,6 +13,8 @@ from Recommenders.ParameterTuning.AbstractClassSearch import DictionaryKeys
 from Recommenders.Utilities.Base.Recommender import Recommender
 from Recommenders.Utilities.Base.Evaluation.Evaluator import SequentialEvaluator
 from Recommenders.Hybrids_recommenders.LightFM_recommender import LightFM_recommender
+from Recommenders.CBF_and_CF_Recommenders.KNN.ItemKNNCBFRecommender import ItemKNNCBFRecommender
+from Recommenders.CBF_and_CF_Recommenders.KNN.ItemKNNSimilarityHybridRecommender import ItemKNNSimilarityHybridRecommender
 
 import traceback, pickle
 import multiprocessing
@@ -49,15 +51,13 @@ class Linear_combination_scores_with_Bayesian_search(Recommender):
         scaler.fit(array)
         return scaler.transform(array).ravel().reshape(shape)
 
-    def fit(self, elastic_value, bpr_value, cbf_value, user_based_value, graph_value, item_based_value, light_value):
+    def fit(self, elastic_value, bpr_value, cbf_value, graph_value, item_based_value):
         self.rec_dict.clear()
-        self.rec_dict[elastic] = elastic_value
-        self.rec_dict[bpr] = bpr_value
-        self.rec_dict[cbf] = cbf_value
-        self.rec_dict[user_based] = user_based_value
-        self.rec_dict[graph] = graph_value
-        self.rec_dict[item_based] = item_based_value
-        self.rec_dict[light_FM] = light_value
+        self.rec_dict[elastic_hybrid] = elastic_value
+        self.rec_dict[bpr_hybrid] = bpr_value
+        self.rec_dict[cbf_new] = cbf_value
+        self.rec_dict[graph_hybrid] = graph_value
+        self.rec_dict[item_hybrid] = item_based_value
 
     def _remove_seen_on_scores(self, user_id, scores):
 
@@ -105,13 +105,11 @@ def runParameterSearch_Collaborative(recommender_class, URM_train, metric_to_opt
 
         if recommender_class is Linear_combination_scores_with_Bayesian_search:
             hyperparamethers_range_dictionary = {}
-            hyperparamethers_range_dictionary["elastic_value"] = Real(low=30.0, high=100.0, prior='uniform')
-            hyperparamethers_range_dictionary["bpr_value"] = Real(low=2.0, high=10.0, prior='uniform')
-            hyperparamethers_range_dictionary["cbf_value"] = Real(low=3.0, high=10.0, prior='uniform')
-            hyperparamethers_range_dictionary["user_based_value"] = Real(low=0.0, high=10.0, prior='uniform')
+            hyperparamethers_range_dictionary["elastic_value"] = Real(low=10.0, high=90.0, prior='uniform')
+            hyperparamethers_range_dictionary["bpr_value"] = Real(low=0.0, high=20.0, prior='uniform')
+            hyperparamethers_range_dictionary["cbf_value"] = Real(low=0.0, high=20.0, prior='uniform')
             hyperparamethers_range_dictionary["graph_value"] = Real(low=0.0, high=20.0, prior='uniform')
-            hyperparamethers_range_dictionary["item_based_value"] = Real(low=0.0, high=10.0, prior='uniform')
-            hyperparamethers_range_dictionary["light_value"] = Real(low=0.0, high=10.0, prior='uniform')
+            hyperparamethers_range_dictionary["item_based_value"] = Real(low=0.0, high=20.0, prior='uniform')
 
 
             recommenderDictionary = {DictionaryKeys.CONSTRUCTOR_POSITIONAL_ARGS: [urm_train, dict()],
@@ -144,40 +142,37 @@ if __name__ == '__main__':
 
     urm_train, urm_validation = train_test_holdout(URM_all=urm_temp_train)
 
-    elastic = MultiThreadSLIM_ElasticNet(urm_train)
-    l1_value = 1e-05
-    l2_value = 0.002
-    k = 150
-    elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+    elastic_new = MultiThreadSLIM_ElasticNet(urm_train)
+    elastic_new.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
+                    l2_penalty=0.011673969837199876, topK=200)
 
-    bpr = SLIM_BPR_Cython(urm_train)
-    bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
-
-    cbf = CBF_recommender(urm_csr=urm_train, icm_csr=icm_complete.tocsr())
-    cbf.fit(topK=100, shrink=3)
-
-    user_based = User_based_CF_recommender(urm_train)
-    user_based.fit(topK=180, shrink=2)
+    cbf_new = ItemKNNCBFRecommender(ICM=icm_complete, URM_train=urm_train)
+    cbf_new.fit(topK=50, shrink=100, feature_weighting="TF-IDF")
 
     item_based = Item_based_CF_recommender(urm_train)
     item_based.fit(topK=150, shrink=20)
 
-    light_FM = LightFM_recommender(urm_train, icm_complete)
-    light_FM.fit(no_components=50, item_alpha=1e-05, user_alpha=0.0001, epochs=90, loss='bpr')
-
     graph = RP3betaRecommender(urm_train)
     graph.fit(topK=100, alpha=0.95, beta=0.3)
 
-    plain_dict = {}
+    bpr = SLIM_BPR_Cython(urm_train)
+    bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
 
+    elastic_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=elastic_new.W_sparse,
+                                                Similarity_2=cbf_new.W_sparse)
+    elastic_hybrid.fit(alpha=0.95, beta=0.05, topK=250)
 
-    plain_dict[elastic] = 50.0
-    plain_dict[bpr] = 4.5
-    plain_dict[cbf] = 6.5
-    plain_dict[graph] = 10.0
-    recommender = Linear_combination_scores_with_Bayesian_search(urm_csr=urm_train, rec_dictionary=plain_dict)
-    print("Best so far:")
-    print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+    item_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=item_based.W_sparse,
+                                                Similarity_2=cbf_new.W_sparse)
+    item_hybrid.fit(alpha=0.8, beta=0.2, topK=150)
+
+    graph_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=graph.W_sparse,
+                                                Similarity_2=cbf_new.W_sparse)
+    graph_hybrid.fit(alpha=0.97, beta=0.03, topK=200)
+
+    bpr_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=bpr.W_sparse,
+                                                Similarity_2=cbf_new.W_sparse)
+    bpr_hybrid.fit(alpha=0.55, beta=0.45, topK=300)
 
 
     #################################################################

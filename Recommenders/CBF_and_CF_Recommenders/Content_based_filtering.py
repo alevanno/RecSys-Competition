@@ -59,6 +59,11 @@ if __name__ == '__main__':
     K_results = []
     for k in K_values:
         recommender.fit(topK=k,shrink=3)
+        for id in range(urm_train.shape[0]):
+            scores = recommender.compute_item_score(id)
+            print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+            print("Maximum: " + str(scores.max()))
+            print("mean: " + str(scores[np.nonzero(scores)].mean()))
         evaluation_metrics = recommender.evaluateRecommendations(URM_test=urm_test, at=10)
         print("k= " + str(k))
         print(evaluation_metrics)

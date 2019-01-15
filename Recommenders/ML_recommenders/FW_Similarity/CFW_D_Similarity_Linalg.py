@@ -287,6 +287,20 @@ if __name__ == '__main__':
     icm_complete = utility.build_icm_matrix()
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
 
+    elastic = MultiThreadSLIM_ElasticNet(urm_train)
+    l1_value = 1e-05
+    l2_value = 0.002
+    k = 150
+    elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+
+    cbf_boosted = CFW_D_Similarity_Linalg(URM_train=urm_train, ICM=icm_complete, S_matrix_target=elastic.W_sparse)
+    cbf_boosted.fit(damp_coeff=0.1, add_zeros_quota=1.0, topK=50)
+    for id in range(urm_train.shape[0]):
+        scores = cbf_boosted.compute_item_score(id)
+        print("Minimum: " + str(scores[np.nonzero(scores)].min()))
+        print("Maximum: " + str(scores.max()))
+        print("mean: " + str(scores[np.nonzero(scores)].mean()))
+    """
     elastic_cbf_dictionary = {}
 
     elastic = MultiThreadSLIM_ElasticNet(urm_train)
@@ -311,3 +325,4 @@ if __name__ == '__main__':
     print("recommender elastic evaluation")
     print(recommender_elastic.evaluateRecommendations(URM_test=urm_test, at=10))
 
+    """
