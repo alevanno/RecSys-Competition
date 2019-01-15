@@ -79,13 +79,13 @@ if __name__ == '__main__':
     print(graph.evaluateRecommendations(URM_test=urm_test, at=10))
     """
 
-
+    """
     elastic_new = MultiThreadSLIM_ElasticNet(urm_train)
     elastic_new.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
                     l2_penalty=0.011673969837199876, topK=200)
     print("elastic performance")
     print(elastic_new.evaluateRecommendations(URM_test=urm_test, at=10))
-
+    """
 
     """
     item_based = Item_based_CF_recommender(urm_train)

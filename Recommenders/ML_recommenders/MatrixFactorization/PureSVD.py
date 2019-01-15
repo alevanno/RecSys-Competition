@@ -39,9 +39,14 @@ class PureSVDRecommender(Recommender):
         self.U, self.Sigma, self.VT = randomized_svd(self.URM_train,
                                       n_components=num_factors,
                                       #n_iter=5,
-                                      random_state=None)
+                                      random_state=3)
 
         self.s_Vt = sps.diags(self.Sigma)*self.VT
+
+        self.W_sparse = self.U.dot(self.s_Vt)
+
+        print(self.W_sparse.shape)
+        print(type(self.W_sparse))
 
         print(self.RECOMMENDER_NAME + " Computing SVD decomposition... Done!")
 
@@ -89,3 +94,16 @@ class PureSVDRecommender(Recommender):
 
 
         print("{}: Saving complete")
+
+if __name__ == '__main__':
+    utility = Data_matrix_utility()
+    urm_complete = utility.build_urm_matrix()
+    icm_complete = utility.build_icm_matrix().tocsr()
+    urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
+
+    recommender = PureSVDRecommender(URM_train=urm_train)
+    i=0
+    while i <= 5:
+        recommender.fit()
+        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+        i += 1

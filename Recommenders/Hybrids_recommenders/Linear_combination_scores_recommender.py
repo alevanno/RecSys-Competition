@@ -26,7 +26,7 @@ class Linear_combination_scores_recommender(Recommender):
         self.scale = scale
 
     def compute_item_score(self, user_id):
-        self.filterTopPop_ItemsID = self.top_pop_item()
+        #self.filterTopPop_ItemsID = self.top_pop_item()
         scores = np.zeros(shape=(len(user_id), self.URM_train.shape[1]))
 
         for tuple in self.rec_dict.items():
