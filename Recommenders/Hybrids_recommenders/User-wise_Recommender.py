@@ -8,6 +8,7 @@ from Recommenders.CBF_and_CF_Recommenders.User_based_CF_Recommender import User_
 from Recommenders.Hybrids_recommenders.Linear_combination_scores_recommender import Linear_combination_scores_recommender
 from Recommenders.ML_recommenders.SLIM_ElasticNet.SLIMElasticNetMultiProcess import MultiThreadSLIM_ElasticNet
 from Recommenders.CBF_and_CF_Recommenders.Content_based_filtering import CBF_recommender
+from Recommenders.CBF_and_CF_Recommenders.KNN.ItemKNNSimilarityHybridRecommender import ItemKNNSimilarityHybridRecommender
 
 from Recommenders.CBF_and_CF_Recommenders.KNN.ItemKNNCBFRecommender import ItemKNNCBFRecommender
 from Recommenders.Hybrids_recommenders.LightFM_recommender import LightFM_recommender
@@ -23,31 +24,82 @@ class User_wise_Recommender(object):
         self.ICM = icm
 
     def fit(self):
-        elastic = MultiThreadSLIM_ElasticNet(self.URM_train)
-        elastic.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
-                    l2_penalty=0.011673969837199876, topK=200)
+        self.elastic_new = MultiThreadSLIM_ElasticNet(self.URM_train)
+        self.elastic_new.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
+                        l2_penalty=0.011673969837199876, topK=200)
 
-        graph = RP3betaRecommender(self.URM_train)
-        graph.fit(topK=100, alpha=0.95, beta=0.3)
+        self.cbf_new = ItemKNNCBFRecommender(ICM=self.ICM, URM_train=self.URM_train)
+        self.cbf_new.fit(topK=50, shrink=100, feature_weighting="TF-IDF")
 
-        bpr = SLIM_BPR_Cython(self.URM_train)
-        bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+        self.item_based = Item_based_CF_recommender(self.URM_train)
+        self.item_based.fit(topK=150, shrink=20)
 
-        cbf = CBF_recommender(urm_csr=self.URM_train, icm_csr=icm_complete.tocsr())
-        cbf.fit(topK=100, shrink=3)
+        self.user_based = User_based_CF_recommender(self.URM_train)
+        self.user_based.fit(topK=180, shrink=2)
 
-        cbf_boosted = CFW_D_Similarity_Linalg(URM_train=self.URM_train, ICM=icm_complete, S_matrix_target=elastic.W_sparse)
-        cbf_boosted.fit(damp_coeff=0.1, add_zeros_quota=1.0, topK=50)
+        self.graph = RP3betaRecommender(self.URM_train)
+        self.graph.fit(topK=100, alpha=0.95, beta=0.3)
+
+        self.bpr = SLIM_BPR_Cython(self.URM_train)
+        self.bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
+
+        self.elastic_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=self.URM_train, Similarity_1=self.elastic_new.W_sparse,
+                                                            Similarity_2=self.cbf_new.W_sparse)
+        self.elastic_hybrid.fit(alpha=0.95, beta=0.05, topK=250)
+
+        self.item_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=self.URM_train, Similarity_1=self.item_based.W_sparse,
+                                                         Similarity_2=self.cbf_new.W_sparse)
+        self.item_hybrid.fit(alpha=0.8, beta=0.2, topK=150)
+
+        self.graph_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=self.URM_train, Similarity_1=self.graph.W_sparse,
+                                                          Similarity_2=self.cbf_new.W_sparse)
+        self.graph_hybrid.fit(alpha=0.97, beta=0.03, topK=200)
+
+        self.bpr_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=self.URM_train, Similarity_1=self.bpr.W_sparse,
+                                                        Similarity_2=self.cbf_new.W_sparse)
+        self.bpr_hybrid.fit(alpha=0.55, beta=0.45, topK=300)
+
+        self.light_FM = LightFM_recommender(self.URM_train, self.ICM)
+        self.light_FM.fit(no_components=50, item_alpha=1e-05, user_alpha=0.0001, epochs=90)
 
         plain_dict = {}
-        plain_dict[elastic] = 50.0
+        plain_dict[elastic_new] = 50.0
         plain_dict[bpr] = 4.5
-        plain_dict[cbf] = 6.5
+        plain_dict[cbf_new] = 6.5
         plain_dict[graph] = 10.0
-        plain_dict[cbf_boosted] = 5.0
-        self.content_rec = Linear_combination_scores_recommender(urm_csr=self.URM_train, rec_dictionary=plain_dict)
+        self.best_rec = Linear_combination_scores_recommender(urm_csr=self.URM_train, rec_dictionary=plain_dict)
 
-        other_dict = {}
+        second_dict = {}
+        second_dict[elastic_new] = 85.69524017409397
+        second_dict[bpr] = 8.809832021747436
+        second_dict[graph] = 10.963047273471327
+        second_dict[cbf_new] = 5.9584783079642
+        second_dict[item_based] = 6.590684520042074
+        second_dict[user_based] = 0.1824636850615924
+        second_dict[light_FM] = 6.3985793332282235
+        self.second_rec = Linear_combination_scores_recommender(self.URM_train, rec_dictionary=second_dict)
+
+        third_dict = {}
+        third_dict[elastic_new] = 79.42214197079755
+        third_dict[bpr] = 9.940183762075806
+        third_dict[graph] = 9.616821564600901
+        third_dict[item_based] = 9.88666288484462
+        self.third_rec = Linear_combination_scores_recommender(self.URM_train, rec_dictionary=third_dict)
+
+        fourth_dict = {}
+        fourth_dict[elastic_new] = 77.77332812580758
+        fourth_dict[bpr] = 9.575116156481108
+        fourth_dict[graph] = 9.944083729532741
+        fourth_dict[item_based] = 0.9830426465769995
+        self.fourth_rec = Linear_combination_scores_recommender(self.URM_train, rec_dictionary=fourth_dict)
+
+        fifth_dict = {}
+        fifth_dict[elastic_new] = 77.23506889106422
+        fifth_dict[bpr] = 9.929831307151332
+        fifth_dict[graph] = 0.3671828951505075
+        fifth_dict[item_based] = 9.376820981762133
+        fifth_dict[user_based] = 1.0856382594992606
+        self.fifth_rec = Linear_combination_scores_recommender(self.URM_train, rec_dictionary=fifth_dict)
 
 
 
@@ -85,7 +137,7 @@ def group_formation(urm_train):
     group_dict = {}
 
     profile_length = np.ediff1d(urm_train.indptr)
-    block_size = int(len(profile_length) * 0.12)
+    block_size = int(len(profile_length) * 0.10)
     sorted_users = np.argsort(profile_length)
 
     for group_id in range(0, 10):
@@ -105,57 +157,91 @@ if __name__ == '__main__':
 
     urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
 
-    cbf_elastic_dict = {}
-    elastic = MultiThreadSLIM_ElasticNet(urm_train)
-    l1_value = 1e-05
-    l2_value = 0.002
-    k = 150
-    elastic.fit(alpha=l1_value + l2_value, l1_penalty=l1_value, l2_penalty=l2_value, topK=k)
+    elastic_new = MultiThreadSLIM_ElasticNet(urm_train)
+    elastic_new.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
+                    l2_penalty=0.011673969837199876, topK=200)
 
-    cbf = ItemKNNCBFRecommender(ICM=icm_complete, URM_train=urm_train)
-    cbf.fit(topK=50, shrink=100, feature_weighting="TF-IDF")
-    cbf_elastic_dict[elastic] = 20.0
-    cbf_elastic_dict[cbf] = 1.0
-    #cbf_elastic_rec = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=cbf_elastic_dict)
+    cbf_new = ItemKNNCBFRecommender(ICM=icm_complete, URM_train=urm_train)
+    cbf_new.fit(topK=50, shrink=100, feature_weighting="TF-IDF")
 
-    cbf_bpr_dict = {}
+    item_based = Item_based_CF_recommender(urm_train)
+    item_based.fit(topK=150, shrink=20)
+
+    user_based = User_based_CF_recommender(urm_train)
+    user_based.fit(topK=180, shrink=2)
+
+    graph = RP3betaRecommender(urm_train)
+    graph.fit(topK=100, alpha=0.95, beta=0.3)
+
     bpr = SLIM_BPR_Cython(urm_train)
     bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
-    cbf_bpr_dict[bpr] = 1.2
-    cbf_bpr_dict[cbf] = 1.0
-    #cbf_bpr_rec = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=cbf_bpr_dict)
 
-    user_rec = User_based_CF_recommender(urm_train)
-    user_rec.fit(shrink=2, topK=180)
+    elastic_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=elastic_new.W_sparse,
+                                                        Similarity_2=cbf_new.W_sparse)
+    elastic_hybrid.fit(alpha=0.95, beta=0.05, topK=250)
 
-    item_rec = Item_based_CF_recommender(urm_train)
-    item_rec.fit(topK=150, shrink=20)
+    item_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=item_based.W_sparse,
+                                                     Similarity_2=cbf_new.W_sparse)
+    item_hybrid.fit(alpha=0.8, beta=0.2, topK=150)
 
-    graph_rec = RP3betaRecommender(urm_train)
-    graph_rec.fit(topK=100, alpha=0.95, beta=0.3)
+    graph_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=graph.W_sparse,
+                                                      Similarity_2=cbf_new.W_sparse)
+    graph_hybrid.fit(alpha=0.97, beta=0.03, topK=200)
 
-    cbf_boosted = CFW_D_Similarity_Linalg(URM_train=urm_train, ICM=icm_complete, S_matrix_target=elastic.W_sparse)
-    cbf_boosted.fit(damp_coeff=0.1, add_zeros_quota=1.0, topK=50)
+    bpr_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=bpr.W_sparse,
+                                                    Similarity_2=cbf_new.W_sparse)
+    bpr_hybrid.fit(alpha=0.55, beta=0.45, topK=300)
 
     light_FM = LightFM_recommender(urm_train, icm_complete)
     light_FM.fit(no_components=50, item_alpha=1e-05, user_alpha=0.0001, epochs=90)
 
     plain_dict = {}
-    plain_dict[elastic] = 50.0
+    plain_dict[elastic_new] = 50.0
     plain_dict[bpr] = 4.5
-    plain_dict[cbf] = 6.5
-    plain_dict[graph_rec] = 10.0
+    plain_dict[cbf_new] = 6.5
+    plain_dict[graph] = 10.0
     best_rec = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=plain_dict)
+    print(best_rec.evaluateRecommendations(URM_test=urm_test, at=10))
 
-    alternative_elastic = MultiThreadSLIM_ElasticNet(urm_train)
-    alternative_elastic.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
-                        l2_penalty=0.011673969837199876, topK=200)
-    linear_dict = {}
-    linear_dict[alternative_elastic] = 50.0
-    linear_dict[bpr] = 4.5
-    linear_dict[cbf] = 6.5
-    linear_dict[graph_rec] = 10.0
-    best_rec_alternative = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=plain_dict)
+    second_dict = {}
+    second_dict[elastic_new] = 85.69524017409397
+    second_dict[bpr] = 8.809832021747436
+    second_dict[graph] = 10.963047273471327
+    second_dict[cbf_new] = 5.9584783079642
+    second_dict[item_based] = 6.590684520042074
+    second_dict[user_based] = 0.1824636850615924
+    second_dict[light_FM] = 6.3985793332282235
+    second_rec = Linear_combination_scores_recommender(urm_train, rec_dictionary=second_dict)
+    print("Recommender2")
+    print(second_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+    third_dict = {}
+    third_dict[elastic_new] = 79.42214197079755
+    third_dict[bpr] = 9.940183762075806
+    third_dict[graph] = 9.616821564600901
+    third_dict[item_based] = 9.88666288484462
+    third_rec = Linear_combination_scores_recommender(urm_train, rec_dictionary=third_dict)
+    print("Recommender3")
+    print(third_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+    fourth_dict = {}
+    fourth_dict[elastic_new] = 77.77332812580758
+    fourth_dict[bpr] = 9.575116156481108
+    fourth_dict[graph] = 9.944083729532741
+    fourth_dict[item_based] = 0.9830426465769995
+    fourth_rec = Linear_combination_scores_recommender(urm_train, rec_dictionary=fourth_dict)
+    print("Recommender4")
+    print(fourth_rec.evaluateRecommendations(URM_test=urm_test, at=10))
+
+    fifth_dict = {}
+    fifth_dict[elastic_new] = 77.23506889106422
+    fifth_dict[bpr] = 9.929831307151332
+    fifth_dict[graph] = 0.3671828951505075
+    fifth_dict[item_based] = 9.376820981762133
+    fifth_dict[user_based] = 1.0856382594992606
+    fifth_rec = Linear_combination_scores_recommender(urm_train, rec_dictionary=fifth_dict)
+    print("Recommender5")
+    print(fifth_rec.evaluateRecommendations(URM_test=urm_test, at=10))
 
 
 
@@ -164,16 +250,12 @@ if __name__ == '__main__':
     block_size = int(len(profile_length) * 0.10)
     sorted_users = np.argsort(profile_length)
 
-    MAP_elastic_per_group = []
-    MAP_cbf_per_group = []
-    MAP_bpr_per_group = []
-    MAP_user_per_group = []
-    MAP_item_per_group = []
-    MAP_graph_per_group = []
-    MAP_cbf_boosted_per_group = []
-    MAP_light_FM_per_group = []
+
     MAP_best_per_group = []
-    MAP_best_alternative_per_group = []
+    MAP_second_per_group = []
+    MAP_third_per_group = []
+    MAP_fourth_per_group = []
+    MAP_fifth_per_group = []
     cutoff = 10
 
     for group_id in range(0, 10):
@@ -194,48 +276,30 @@ if __name__ == '__main__':
 
         evaluator_test = SequentialEvaluator(urm_test, cutoff_list=[cutoff], ignore_users=users_not_in_group)
 
-        results, _ = evaluator_test.evaluateRecommender(elastic)
-        MAP_elastic_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(cbf)
-        MAP_cbf_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(bpr)
-        MAP_bpr_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(user_rec)
-        MAP_user_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(item_rec)
-        MAP_item_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(graph_rec)
-        MAP_graph_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(cbf_boosted)
-        MAP_cbf_boosted_per_group.append(results[cutoff]["MAP"])
-
-        results, _ = evaluator_test.evaluateRecommender(light_FM)
-        MAP_light_FM_per_group.append(results[cutoff]["MAP"])
-
         results, _ = evaluator_test.evaluateRecommender(best_rec)
         MAP_best_per_group.append(results[cutoff]["MAP"])
 
-        results, _ = evaluator_test.evaluateRecommender(best_rec_alternative)
-        MAP_best_alternative_per_group.append(results[cutoff]["MAP"])
+        results, _ = evaluator_test.evaluateRecommender(second_rec)
+        MAP_second_per_group.append(results[cutoff]["MAP"])
 
-    pyplot.plot(MAP_elastic_per_group, label="elastic")
-    pyplot.plot(MAP_cbf_per_group, label="cbf")
-    pyplot.plot(MAP_bpr_per_group, label="bpr")
-    pyplot.plot(MAP_user_per_group, label="user")
-    pyplot.plot(MAP_item_per_group, label="item")
-    pyplot.plot(MAP_graph_per_group, label="graph")
-    pyplot.plot(MAP_cbf_boosted_per_group, label="cbf_boosted")
-    pyplot.plot(MAP_light_FM_per_group, label="light_FM")
+        results, _ = evaluator_test.evaluateRecommender(third_rec)
+        MAP_third_per_group.append(results[cutoff]["MAP"])
+
+        results, _ = evaluator_test.evaluateRecommender(fourth_rec)
+        MAP_fourth_per_group.append(results[cutoff]["MAP"])
+
+        results, _ = evaluator_test.evaluateRecommender(fifth_rec)
+        MAP_fifth_per_group.append(results[cutoff]["MAP"])
+
+
     pyplot.plot(MAP_best_per_group, label="best")
-    pyplot.plot(MAP_best_alternative_per_group, label="best_alternative")
+    pyplot.plot(MAP_second_per_group, label="second")
+    pyplot.plot(MAP_third_per_group, label="third")
+    pyplot.plot(MAP_fourth_per_group, label="fourth")
+    pyplot.plot(MAP_fifth_per_group, label="fifth")
     pyplot.ylabel('MAP')
     pyplot.xlabel('User Group')
     pyplot.legend()
     pyplot.show()
+
 

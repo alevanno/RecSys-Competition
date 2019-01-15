@@ -69,96 +69,66 @@ def provide_recommendations():
         r = recommender.recommend(user_id_array=[target], cutoff=10)
         recommendations[target] = [item for sublist in r for item in sublist]
 
-    with open('Linear_combination_to_submit.csv', 'w') as f:
+    with open('in_zona_cesarini.csv', 'w') as f:
         f.write('playlist_id,track_ids\n')
         for i in sorted(recommendations):
             f.write('{},{}\n'.format(i, ' '.join([str(x) for x in recommendations[i]])))
 
-def user_to_neglect(type = "under", group_id = 4):
-    profile_length = np.ediff1d(urm_train.indptr)
-    block_size = int(len(profile_length) * 0.10)
-    sorted_users = np.argsort(profile_length)
-
-    if type == "under":
-        start_pos = 0
-        end_pos = min((group_id + 1) * block_size, len(profile_length))
-        user_to_neglect = sorted_users[start_pos:end_pos]
-    else:
-        start_pos = min((group_id + 1) * block_size, len(profile_length))
-        end_pos = len(profile_length)
-        user_to_neglect = sorted_users[start_pos:end_pos]
-
-    return user_to_neglect
 
 if __name__ == '__main__':
     utility = Data_matrix_utility()
     urm_complete = utility.build_urm_matrix().tocsr()
     icm_complete = utility.build_icm_matrix().tocsr()
-    urm_train, urm_test = train_test_holdout(URM_all=urm_complete)
 
-    elastic_new = MultiThreadSLIM_ElasticNet(urm_train)
+    elastic_new = MultiThreadSLIM_ElasticNet(urm_complete)
     elastic_new.fit(alpha=0.0008868749995645901, l1_penalty=1.8986406043137196e-06,
                     l2_penalty=0.011673969837199876, topK=200)
 
-
-    graph = RP3betaRecommender(urm_train)
+    graph = RP3betaRecommender(urm_complete)
     graph.fit(topK=100, alpha=0.95, beta=0.3)
 
-    bpr = SLIM_BPR_Cython(urm_train)
+    bpr = SLIM_BPR_Cython(urm_complete)
     bpr.fit(epochs=250, lambda_i=0.001, lambda_j=0.001, learning_rate=0.01)
 
-    cbf_new = ItemKNNCBFRecommender(ICM=icm_complete, URM_train=urm_train)
+    cbf_new = ItemKNNCBFRecommender(ICM=icm_complete, URM_train=urm_complete)
     cbf_new.fit(topK=50, shrink=100, feature_weighting="TF-IDF")
 
-    plain_dict = {}
-    plain_dict[elastic_new] = 50.0
-    plain_dict[bpr] = 4.5
-    plain_dict[cbf_new] = 6.5
-    plain_dict[graph] = 10.0
 
-    best_rec = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=plain_dict)
-
-
-    print("best so far")
-    print(best_rec.evaluateRecommendations(URM_test=urm_test, at=10))
-
-    item_based = Item_based_CF_recommender(urm_train)
+    item_based = Item_based_CF_recommender(urm_complete)
     item_based.fit(topK=150, shrink=20)
 
-    user_based = User_based_CF_recommender(urm_train)
+    user_based = User_based_CF_recommender(urm_complete)
     user_based.fit(shrink=2, topK=180)
 
-    elastic_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=elastic_new.W_sparse,
+    elastic_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_complete, Similarity_1=elastic_new.W_sparse,
                                                         Similarity_2=cbf_new.W_sparse)
     elastic_hybrid.fit(alpha=0.95, beta=0.05, topK=250)
 
-    item_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=item_based.W_sparse,
+    item_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_complete, Similarity_1=item_based.W_sparse,
                                                      Similarity_2=cbf_new.W_sparse)
     item_hybrid.fit(alpha=0.8, beta=0.2, topK=150)
 
-    graph_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=graph.W_sparse,
+    graph_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_complete, Similarity_1=graph.W_sparse,
                                                       Similarity_2=cbf_new.W_sparse)
     graph_hybrid.fit(alpha=0.97, beta=0.03, topK=200)
 
-    bpr_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_train, Similarity_1=bpr.W_sparse,
+    bpr_hybrid = ItemKNNSimilarityHybridRecommender(URM_train=urm_complete, Similarity_1=bpr.W_sparse,
                                                     Similarity_2=cbf_new.W_sparse)
     bpr_hybrid.fit(alpha=0.55, beta=0.45, topK=300)
 
-    other_dict = {}
+    light_FM = LightFM_recommender(urm_complete, icm_complete)
+    light_FM.fit(no_components=50, item_alpha=1e-05, user_alpha=0.0001, epochs=90)
 
-    elastic_list = [60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 60.0, 70.0, 80.0]
-    item_list = [5.0, 6.0, 6.5, 7.0, 2.0, 3.0, 5.0, 6.0, 4.0, 3.0, 6.0, 6.0]
-    bpr_list = [8.0, 8.0, 7.5, 6.0, 8.0, 8.0, 8.0, 8.0, 8.5, 4.0, 8.0, 8.0]
-    graph_list = [6.0, 6.0, 7.0, 5.0, 4.0, 4.0, 10.0, 10.0, 9.0, 5.0, 10.0, 10.0]
-    cbf_list = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    second_dict = {}
+    second_dict[elastic_new] = 85.69524017409397
+    second_dict[bpr] = 8.809832021747436
+    second_dict[graph] = 10.963047273471327
+    second_dict[cbf_new] = 5.9584783079642
+    second_dict[item_based] = 6.590684520042074
+    second_dict[user_based] = 0.1824636850615924
+    second_dict[light_FM] = 6.3985793332282235
+    recommender = Linear_combination_scores_recommender(urm_complete, rec_dictionary=second_dict)
+    provide_recommendations()
 
-    for e, i, b, g, c in zip(elastic_list, item_list, bpr_list, graph_list, cbf_list):
-        print("Config: elastic=" + str(e) + ", item=" + str(i) + ", BPR=" + str(b) + ", graph=" + str(g) +
-              ", cbf=" + str(c))
-        other_dict[elastic_hybrid] = e
-        other_dict[item_hybrid] = i
-        other_dict[bpr_hybrid] = b
-        other_dict[graph_hybrid] = g
-        #other_dict[cbf_new] = c
-        recommender = Linear_combination_scores_recommender(urm_csr=urm_train, rec_dictionary=other_dict)
-        print(recommender.evaluateRecommendations(URM_test=urm_test, at=10))
+
+
